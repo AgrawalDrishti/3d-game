@@ -107,17 +107,26 @@ def create_sphere(radius, segments):
 
     return np.array(vertices, dtype=np.float32), np.array(indices, dtype=np.uint32)
 
-# def get_sphere():
-#     vertices, indices = create_sphere(1, 32)
-#     sphere_properties = {
-#         'vertices': vertices,
-#         'indices': indices,
-#         'position': np.array([10, 0, 0], dtype=np.float32),
-#         'velocity': np.array([0, 0, 0], dtype=np.float32),
-#         'rotation': np.array([0, 0, 0], dtype=np.float32),
-#         'scale': np.array([1, 1, 1], dtype=np.float32),
-#         'color': np.array([1, 0, 0, 1], dtype=np.float32),
-#         'sens': 250,
-#     }
-
-#     return sphere_properties
+def get_space_station():
+    # Construct the path to your spacestation.obj file.
+    file_path = os.path.join(os.path.dirname(__file__), "models", "spacestation.obj")
+    vertices, indices = load_obj(file_path)
+    
+    # For simplicity, we'll assign a uniform color to all vertices (e.g. light gray).
+    vertices_reshaped = vertices.reshape(-1, 3)
+    num_vertices = vertices_reshaped.shape[0]
+    # Create a colors array: for each vertex, assign a RGBA value.
+    colors = np.tile(np.array([0.8, 0.8, 0.8, 1.0], dtype=np.float32), num_vertices)
+    
+    station_properties = {
+        'vertices': vertices,
+        'indices': indices,
+        'colors': colors,
+        'position': np.array([0, 0, -10], dtype=np.float32),  # default; will be updated in game.py
+        'velocity': np.array([0, 0, 0], dtype=np.float32),
+        'rotation': np.array([0, 0, 0], dtype=np.float32),
+        'scale': np.array([1, 1, 1], dtype=np.float32),
+        'color': np.array([0.8, 0.8, 0.8, 1.0], dtype=np.float32),
+        'sens': 250,
+    }
+    return station_properties

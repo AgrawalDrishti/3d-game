@@ -23,7 +23,10 @@ class Game:
                 self.camera.position = np.array([0, 0, 1], dtype=np.float32)
                 self.camera.lookAt = np.array([0, 0, -1], dtype=np.float32)
                 self.camera.up = np.array([0, 1, 0], dtype=np.float32)
-                self.camera.fov = 90
+                self.camera.fov = 45
+                self.camera.near = 1.0
+                self.camera.far = 10000.0
+                
             setCamera()
             ############################################################################
 
@@ -54,8 +57,8 @@ class Game:
                 planet = get_planet(bottom_color , top_color)  # get default planet properties with gradient colors
                 # Set a random position: x in [-300,300], y in [-300,300], z in [-150, -30]
                 pos = np.array([
-                    np.random.uniform(-100, 100),
-                    np.random.uniform(-100, 100),
+                    np.random.uniform(-50, 50),
+                    np.random.uniform(-50, 50),
                     np.random.uniform(-150, -30)
                 ], dtype=np.float32)
                 planet["position"] = pos
