@@ -1,9 +1,10 @@
 import imgui
 import numpy as np
 from utils.graphics import Object, Camera, Shader
-from assets.shaders.shaders import object_shader
-from assets.objects.objects import  get_planet , get_space_station
+from assets.shaders.shaders import object_shader , lighting_shader
+from assets.objects.objects import  get_planet , get_space_station , get_transporter
 import random
+from OpenGL.GL import *
 
 class Game:
     def __init__(self, height, width, gui):
@@ -11,7 +12,7 @@ class Game:
         self.height = height
         self.width = width
         self.screen = 0
-        self.shaders = [Shader(object_shader["vertex_shader"], object_shader["fragment_shader"])]
+        self.shaders = [Shader(lighting_shader["vertex_shader"], lighting_shader["fragment_shader"])]
         self.objects = {}
     
 
@@ -35,11 +36,6 @@ class Game:
                 self.worldMax = np.array([5000, 5000, 5000], dtype=np.float32)
             setWorldLimits()
 
-            # Initialize transporter
-            # test_sphere = get_sphere()
-            # test_sphere["position"] = [0, 0, -10]
-            # self.objects["sphere"] = Object(None, self.shaders[0], test_sphere)
-
             ############################################################################
 
             
@@ -56,11 +52,19 @@ class Game:
 
                 planet = get_planet(bottom_color , top_color)  # get default planet properties with gradient colors
                 # Set a random position: x in [-300,300], y in [-300,300], z in [-150, -30]
+                
+                if "normals" not in planet:
+                    n_vertices = len(planet["vertices"]) // 3
+                    # Create a flat array of n_vertices copies of (0, 0, 1)
+                    default_normals = np.tile(np.array([0, 0, 1], dtype=np.float32), n_vertices)
+                    planet["normals"] = default_normals
+
                 pos = np.array([
                     np.random.uniform(-50, 50),
                     np.random.uniform(-50, 50),
                     np.random.uniform(-150, -40)
                 ], dtype=np.float32)
+
                 planet["position"] = pos
                 # Optionally, set a random uniform scale between 0.5 and 2.0
                 scale_val = 5.0
@@ -72,6 +76,10 @@ class Game:
             self.objects["stations"] = []
             for planet_obj in self.objects.get("planets", []):
                 station = get_space_station()
+
+                if "normals" not in station:
+                    n_vertices = len(station["vertices"]) // 3
+                    station["normals"] = np.tile(np.array([0, 0, 1], dtype=np.float32), n_vertices)
                 
                 orbit_radius = 10.0  # Adjust as needed
                 orbit_angle = random.uniform(0, 2 * np.pi)
@@ -105,6 +113,17 @@ class Game:
 
             ############################################################################
             # Initialize transporter (Randomly choose start and end planet, and initialize transporter at start planet)
+            self.objects["transporter"] = None
+            if len(self.objects["planets"]) > 0:
+                # Pick the first planet (or choose randomly).
+                source_planet = self.objects["planets"][0]
+                transporter = get_transporter()
+                # Position the transporter at a fixed offset from the planet (e.g., slightly above it).
+                transporter["position"] = source_planet.properties["position"] + np.array([0, 0, 5], dtype=np.float32)
+                # Set an appropriate scale for the transporter.
+                transporter["scale"] = np.array([2, 2.5, 2.5], dtype=np.float32)
+                self.objects["transporter"] = Object(None, self.shaders[0], transporter)
+
 
             ############################################################################
             # Initialize Pirates (Spawn at random locations within world bounds)
@@ -152,7 +171,7 @@ class Game:
             ############################################################################
 
             # Update each space station's orbital motion.
-            angular_speed = 0.5  # radians per second (adjust as needed)
+            # angular_speed = 0.5  # radians per second (adjust as needed)
             # delta = time["deltaTime"]
             delta = time["deltaTime"]
             theta = 0.4 * delta  # Increment per frame.
@@ -170,25 +189,7 @@ class Game:
                 station_obj.properties["position"][2] = center[2]
 
             
-            # for station_obj in self.objects.get("stations", []):
-            #     # Retrieve stored orbital properties.
-            #     orbit_angle = station_obj.properties.get("orbitAngle", 0)
-            #     orbit_radius = station_obj.properties.get("orbitRadius", 10.0)
-            #     orbit_center = station_obj.properties.get("orbitCenter", np.array([0,0,0], dtype=np.float32))
-                
-            #     # Increment the orbit angle.
-            #     orbit_angle += angular_speed * delta
-            #     station_obj.properties["orbitAngle"] = orbit_angle  # update the stored angle
-                
-            #     # Compute new offset based on the updated orbit angle.
-            #     new_offset = np.array([
-            #         orbit_radius * np.cos(orbit_angle),
-            #         orbit_radius * np.sin(orbit_angle),
-            #         0  # keep the same z offset; you could add variation if desired.
-            #     ], dtype=np.float32)
-                
-            #     # Update the station's position relative to its orbit center.
-            #     station_obj.properties["position"] = orbit_center + new_offset
+            
             # Manage inputs 
             
             ############################################################################
@@ -233,13 +234,23 @@ class Game:
             # Example draw statements
             
             for shader in (self.shaders):
-               self.camera.Update(shader)
+                self.camera.Update(shader)
+                lightPosLocation = glGetUniformLocation(shader.ID, "lightPos".encode('utf-8'))
+                glUniform3f(lightPosLocation, 50.0, 50.0, 50.0)
+                viewPosLocation = glGetUniformLocation(shader.ID, "viewPos".encode('utf-8'))
+                glUniform3f(viewPosLocation, self.camera.position[0], self.camera.position[1], self.camera.position[2])
+                glUniform1f(glGetUniformLocation(shader.ID, "ambientStrength".encode('utf-8')), 0.3)
+                glUniform1f(glGetUniformLocation(shader.ID, "specularStrength".encode('utf-8')), 0.8)
+                glUniform1f(glGetUniformLocation(shader.ID, "shininess".encode('utf-8')), 64.0)
 
             for planet_obj in self.objects.get("planets", []):
                 planet_obj.Draw()
             
             for station_obj in self.objects.get("stations", []):
                 station_obj.Draw()
+            
+            if self.objects.get("transporter") is not None:
+                self.objects["transporter"].Draw()
 
             # self.gameState["transporter"].Draw()
             # self.gameState["stars"].Draw()
