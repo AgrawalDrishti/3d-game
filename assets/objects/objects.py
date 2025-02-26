@@ -116,17 +116,19 @@ def get_space_station():
     vertices_reshaped = vertices.reshape(-1, 3)
     num_vertices = vertices_reshaped.shape[0]
     # Create a colors array: for each vertex, assign a RGBA value.
-    colors = np.tile(np.array([0.8, 0.8, 0.8, 1.0], dtype=np.float32), num_vertices)
+    colors = np.tile(np.array([0.812, 0.0, 1.0, 1.0], dtype=np.float32), num_vertices)
     
     station_properties = {
         'vertices': vertices,
         'indices': indices,
         'colors': colors,
-        'position': np.array([0, 0, -10], dtype=np.float32),  # default; will be updated in game.py
+        'position': np.array([0, 0, 0], dtype=np.float32),  # default; will be updated in game.py
         'velocity': np.array([0, 0, 0], dtype=np.float32),
         'rotation': np.array([0, 0, 0], dtype=np.float32),
-        'scale': np.array([1, 1, 1], dtype=np.float32),
-        'color': np.array([0.8, 0.8, 0.8, 1.0], dtype=np.float32),
+        'scale': np.array([0.5, 0.5, 0.5], dtype=np.float32),
+        'color': np.array([0.812, 0.0, 1.0, 1.0], dtype=np.float32),
         'sens': 250,
+        'rotation_radius': 1.5,
+        'init_position': np.array([0, 0, 0], dtype=np.float32),
     }
     return station_properties

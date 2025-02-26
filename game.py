@@ -2,7 +2,7 @@ import imgui
 import numpy as np
 from utils.graphics import Object, Camera, Shader
 from assets.shaders.shaders import object_shader
-from assets.objects.objects import  get_planet
+from assets.objects.objects import  get_planet , get_space_station
 import random
 
 class Game:
@@ -47,7 +47,7 @@ class Game:
             ############################################################################
 
             # Initialize Planets and space stations (Randomly place n planets and n spacestations within world bounds)
-            self.n_planets = 20 # for example
+            self.n_planets = 10 # for example
 
             self.objects["planets"] = []
             for i in range(self.n_planets):
@@ -59,15 +59,49 @@ class Game:
                 pos = np.array([
                     np.random.uniform(-50, 50),
                     np.random.uniform(-50, 50),
-                    np.random.uniform(-150, -30)
+                    np.random.uniform(-150, -40)
                 ], dtype=np.float32)
                 planet["position"] = pos
                 # Optionally, set a random uniform scale between 0.5 and 2.0
-                scale_val = np.random.uniform(1.0, 3.0)
+                scale_val = 5.0
                 planet["scale"] = np.array([scale_val, scale_val, scale_val], dtype=np.float32)
                 # Create the planet object and add it to the list
                 self.objects["planets"].append(Object(None, self.shaders[0], planet))
             
+
+            self.objects["stations"] = []
+            for planet_obj in self.objects.get("planets", []):
+                station = get_space_station()
+                
+                orbit_radius = 10.0  # Adjust as needed
+                orbit_angle = random.uniform(0, 2 * np.pi)
+                # inclination = random.uniform(-np.radians(60), np.radians(60))  # Adjust as needed
+    
+                # Compute the initial offset based on orbit_radius and orbit_angle.
+                offset = np.array([
+                    orbit_radius * np.cos(orbit_angle) ,
+                    0,
+                    orbit_radius * np.sin(orbit_angle)  # For simplicity, keep z offset zero. Adjust if needed.
+                ], dtype=np.float32)
+
+                # Tie the station to its planet: the orbit center is the planet's position.
+                orbit_center = planet_obj.properties["position"].copy()
+                
+                station["orbitCenter"] = planet_obj.properties["position"].copy()
+
+                station["position"] = orbit_center + offset
+                # Store the orbital properties using our custom keys.
+                station["rotation_radius"] = orbit_radius
+                station["init_position"] = orbit_center.copy()
+                # Also store the current orbit angle in the Z rotation component.
+                station["rotation"] =  np.array([0, 0, orbit_angle], dtype=np.float32)
+                station["scale"] = np.array([0.7, 0.7, 0.7], dtype=np.float32)
+                self.objects["stations"].append(Object(None, self.shaders[0], station))
+                
+                # Optionally, make the station smaller.
+                
+                # Create the station object and add it to our stations list.
+                # self.objects["stations"].append(Object(None, self.shaders[0], station))
 
             ############################################################################
             # Initialize transporter (Randomly choose start and end planet, and initialize transporter at start planet)
@@ -116,6 +150,45 @@ class Game:
     def UpdateScene(self, inputs, time):
         if self.screen == 1: # Game screen
             ############################################################################
+
+            # Update each space station's orbital motion.
+            angular_speed = 0.5  # radians per second (adjust as needed)
+            # delta = time["deltaTime"]
+            delta = time["deltaTime"]
+            theta = 0.4 * delta  # Increment per frame.
+
+            for station_obj in self.objects.get("stations", []):
+                # Update the Z-axis rotation (which we use as the orbital angle).
+                station_obj.properties["rotation"][2] += theta
+                # Retrieve orbit parameters.
+                radius = station_obj.properties["rotation_radius"]
+                center = station_obj.properties["init_position"]
+                # Compute new position in the X-Y plane.
+                station_obj.properties["position"][0] = center[0] + radius * np.cos(station_obj.properties["rotation"][2])
+                station_obj.properties["position"][1] = center[1] + radius * np.sin(station_obj.properties["rotation"][2])
+                # Keep the Z position the same as the orbit center (or offset it slightly if desired).
+                station_obj.properties["position"][2] = center[2]
+
+            
+            # for station_obj in self.objects.get("stations", []):
+            #     # Retrieve stored orbital properties.
+            #     orbit_angle = station_obj.properties.get("orbitAngle", 0)
+            #     orbit_radius = station_obj.properties.get("orbitRadius", 10.0)
+            #     orbit_center = station_obj.properties.get("orbitCenter", np.array([0,0,0], dtype=np.float32))
+                
+            #     # Increment the orbit angle.
+            #     orbit_angle += angular_speed * delta
+            #     station_obj.properties["orbitAngle"] = orbit_angle  # update the stored angle
+                
+            #     # Compute new offset based on the updated orbit angle.
+            #     new_offset = np.array([
+            #         orbit_radius * np.cos(orbit_angle),
+            #         orbit_radius * np.sin(orbit_angle),
+            #         0  # keep the same z offset; you could add variation if desired.
+            #     ], dtype=np.float32)
+                
+            #     # Update the station's position relative to its orbit center.
+            #     station_obj.properties["position"] = orbit_center + new_offset
             # Manage inputs 
             
             ############################################################################
@@ -164,6 +237,9 @@ class Game:
 
             for planet_obj in self.objects.get("planets", []):
                 planet_obj.Draw()
+            
+            for station_obj in self.objects.get("stations", []):
+                station_obj.Draw()
 
             # self.gameState["transporter"].Draw()
             # self.gameState["stars"].Draw()
