@@ -24,13 +24,15 @@ def rotation_matrix(rx, ry, rz):
         
         return Rz @ Ry @ Rx
 
-def load_obj_with_normals(file_path):
+def load_obj_with_normals(file_path , rotation = np.array([0 , 0 , 0] , dtype=np.float32)):
     """Loads vertex positions and vertex normals from an OBJ file.
        Assumes faces are in the format v//vn (no texture coords).
        Expands all faces into triangles (no indexing)."""
     positions = []
     normals = []
     faces = []
+    R = rotation_matrix(*rotation)
+    R_invT = np.linalg.inv(R).T
 
     with open(file_path, 'r') as f:
         for line in f:
@@ -38,11 +40,13 @@ def load_obj_with_normals(file_path):
                 # Vertex positions
                 parts = line.strip().split()
                 x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
+                x , y , z = R @ np.array([x , y , z])
                 positions.append((x, y, z))
             elif line.startswith('vn '):
                 # Vertex normals
                 parts = line.strip().split()
                 nx, ny, nz = float(parts[1]), float(parts[2]), float(parts[3])
+                nx , ny , nz = R_invT @ np.array([nx , ny , nz])
                 normals.append((nx, ny, nz))
             elif line.startswith('f '):
                 # Face references: e.g. "f v1//vn1 v2//vn2 v3//vn3"
@@ -195,17 +199,32 @@ def get_space_station():
 def get_transporter():
     # Construct the path to your transporter.obj file.
     file_path = os.path.join(os.path.dirname(__file__), "models", "transporter.obj")
-    positions , normals = load_obj_with_normals(file_path)
+    positions , normals = load_obj_with_normals(file_path , np.array([np.pi/2 , np.pi/2 , 0] , dtype=np.float32))
     
     # For this example, we'll assign a uniform color (e.g. bright red) to the transporter.
     # vertices_reshaped = vertices.reshape(-1, 3)
     num_vertices = len(positions)//3
     colors = []
 
-    for i in range(num_vertices):
-        colors.extend([1.0, 0.0, 0.0, 1.0])
-
+    positions_reshaped = positions.reshape(-1, 3)
+    # Compute min and max Y-values.
+    min_y = np.min(positions_reshaped[:, 1])
+    max_y = np.max(positions_reshaped[:, 1])
+    
+    # Define dark grey and light grey for the gradient.
+    dark_grey = np.array([0.2, 0.2, 0.2], dtype=np.float32)
+    light_grey = np.array([0.7, 0.7, 0.7], dtype=np.float32)
+    
+    colors = []
+    for vertex in positions_reshaped:
+        y = vertex[1]
+        # Interpolation factor based on Y (if max_y==min_y, t defaults to 0).
+        t = (y - min_y) / (max_y - min_y) if max_y != min_y else 0.0
+        # Interpolate between dark_grey and light_grey.
+        col = dark_grey * (1 - t) + light_grey * t
+        colors.extend([col[0], col[1], col[2], 1.0])
     colors = np.array(colors, dtype=np.float32)
+
     
     transporter_properties = {
         'positions': positions,
@@ -221,5 +240,6 @@ def get_transporter():
         # Fallback uniform color.
         'color': np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
         'sens': 250,
+        'speed': 0.05
     }
     return transporter_properties

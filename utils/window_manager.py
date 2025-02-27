@@ -14,16 +14,16 @@ class Window:
         glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, GL_TRUE)
         
         # # Get the primary monitor for fullscreen
-        # monitor = glfw.get_primary_monitor()
+        monitor = glfw.get_primary_monitor()
 
         # # Get the monitor's video mode (resolution, refresh rate)
-        # mode = glfw.get_video_mode(monitor)
+        mode = glfw.get_video_mode(monitor)
 
         # Create a window using glfw
-        # self.windowHeight = mode.size.height
-        # self.windowWidth = mode.size.width
-        self.windowHeight = 800
-        self.windowWidth = 800
+        self.windowHeight = mode.size.height
+        self.windowWidth = mode.size.width
+        # self.windowHeight = 1000
+        # self.windowWidth = 1000
 
         self.window = glfw.create_window(self.windowWidth, self.windowWidth, "Space Heist", None, None)
         # Pass 2nd last parameter as 'monitor' instead of None for fullscreen experience

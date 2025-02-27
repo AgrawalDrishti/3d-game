@@ -184,11 +184,93 @@ class Object:
             self.ibo = None
         # Store shader reference in self.shader
 
+    # def Draw(self):
+    #     position = self.properties['position']
+    #     scale = self.properties['scale']
+    #     # Use local orientation if available.
+    #     if "orientation" in self.properties:
+    #         R_mat = self.properties["orientation"]
+    #         rotationMatrix_full = np.eye(4, dtype=np.float32)
+    #         rotationMatrix_full[:3, :3] = R_mat
+    #     else:
+    #         rotation = self.properties['rotation']
+    #         rx, ry, rz = rotation
+    #         rotation_z_matrix = np.array([
+    #             [np.cos(rz), -np.sin(rz), 0, 0],
+    #             [np.sin(rz),  np.cos(rz), 0, 0],
+    #             [0, 0, 1, 0],
+    #             [0, 0, 0, 1]
+    #         ], dtype=np.float32)
+    #         rotation_x_matrix = np.array([
+    #             [1, 0, 0, 0],
+    #             [0, np.cos(rx), -np.sin(rx), 0],
+    #             [0, np.sin(rx),  np.cos(rx), 0],
+    #             [0, 0, 0, 1]
+    #         ], dtype=np.float32)
+    #         rotation_y_matrix = np.array([
+    #             [np.cos(ry), 0, np.sin(ry), 0],
+    #             [0, 1, 0, 0],
+    #             [-np.sin(ry), 0, np.cos(ry), 0],
+    #             [0, 0, 0, 1]
+    #         ], dtype=np.float32)
+    #         rotationMatrix_full = rotation_z_matrix @ rotation_y_matrix @ rotation_x_matrix
+
+    #     translation_matrix = np.array([
+    #         [1, 0, 0, position[0]],
+    #         [0, 1, 0, position[1]],
+    #         [0, 0, 1, position[2]],
+    #         [0, 0, 0, 1]
+    #     ], dtype=np.float32)
+    #     scale_matrix = np.array([
+    #         [scale[0], 0, 0, 0],
+    #         [0, scale[1], 0, 0],
+    #         [0, 0, scale[2], 0],
+    #         [0, 0, 0, 1]
+    #     ], dtype=np.float32)
+        
+    #     self.modelMatrix = translation_matrix @ rotationMatrix_full @ scale_matrix
+
+    #     self.shader.Use()
+    #     modelMatrixLocation = glGetUniformLocation(self.shader.ID, "modelMatrix".encode('utf-8'))
+    #     glUniformMatrix4fv(modelMatrixLocation, 1, GL_TRUE, self.modelMatrix)
+        
+    #     colorLocation = glGetUniformLocation(self.shader.ID, "objectColor".encode('utf-8'))
+    #     c = self.properties.get("color", [1,1,1,1])
+    #     glUniform4f(colorLocation, c[0], c[1], c[2], c[3])
+    #     self.vao.Use()
+    #     self.ibo.Use()
+    #     glDrawElements(GL_TRIANGLES, self.ibo.count, GL_UNSIGNED_INT, None)
+
     def Draw(self):
-        # Build the model matrix from position, rotation, and scale.
         position = self.properties['position']
-        rotation = self.properties['rotation']
         scale = self.properties['scale']
+        # Use local orientation if available.
+        if "orientation" in self.properties:
+            R_mat = self.properties["orientation"]
+            rotationMatrix_full = np.eye(4, dtype=np.float32)
+            rotationMatrix_full[:3, :3] = R_mat
+        else:
+            rotation = self.properties['rotation']
+            rx, ry, rz = rotation
+            rotation_z_matrix = np.array([
+                [np.cos(rz), -np.sin(rz), 0, 0],
+                [np.sin(rz),  np.cos(rz), 0, 0],
+                [0,          0,          1, 0],
+                [0,          0,          0, 1]
+            ], dtype=np.float32)
+            rotation_x_matrix = np.array([
+                [1, 0,           0,          0],
+                [0, np.cos(rx), -np.sin(rx),  0],
+                [0, np.sin(rx),  np.cos(rx),  0],
+                [0, 0,           0,          1]
+            ], dtype=np.float32)
+            rotation_y_matrix = np.array([
+                [np.cos(ry),  0, np.sin(ry), 0],
+                [0,           1, 0,          0],
+                [-np.sin(ry), 0, np.cos(ry), 0],
+                [0,           0, 0,          1]
+            ], dtype=np.float32)
+            rotationMatrix_full = rotation_z_matrix @ rotation_y_matrix @ rotation_x_matrix
 
         translation_matrix = np.array([
             [1, 0, 0, position[0]],
@@ -197,25 +279,6 @@ class Object:
             [0, 0, 0, 1]
         ], dtype=np.float32)
         
-        rx, ry, rz = rotation
-        rotation_z_matrix = np.array([
-            [np.cos(rz), -np.sin(rz), 0, 0],
-            [np.sin(rz),  np.cos(rz), 0, 0],
-            [0,           0,          1, 0],
-            [0,           0,          0, 1]
-        ], dtype=np.float32)
-        rotation_x_matrix = np.array([
-            [1, 0,           0,          0],
-            [0, np.cos(rx), -np.sin(rx),  0],
-            [0, np.sin(rx),  np.cos(rx),  0],
-            [0, 0,           0,          1]
-        ], dtype=np.float32)
-        rotation_y_matrix = np.array([
-            [np.cos(ry),  0, np.sin(ry), 0],
-            [0,           1, 0,          0],
-            [-np.sin(ry), 0, np.cos(ry), 0],
-            [0,           0, 0,          1]
-        ], dtype=np.float32)
         scale_matrix = np.array([
             [scale[0], 0, 0, 0],
             [0, scale[1], 0, 0],
@@ -223,21 +286,22 @@ class Object:
             [0, 0, 0, 1]
         ], dtype=np.float32)
         
-        rotationMatrix = rotation_z_matrix @ rotation_y_matrix @ rotation_x_matrix
-        self.modelMatrix = translation_matrix @ rotationMatrix @ scale_matrix
+        self.modelMatrix = translation_matrix @ rotationMatrix_full @ scale_matrix
 
         self.shader.Use()
         modelMatrixLocation = glGetUniformLocation(self.shader.ID, "modelMatrix".encode('utf-8'))
         glUniformMatrix4fv(modelMatrixLocation, 1, GL_TRUE, self.modelMatrix)
-        
+
         # Set fallback color uniform if needed.
         colorLocation = glGetUniformLocation(self.shader.ID, "objectColor".encode('utf-8'))
-        c = self.properties.get("color", [1,1,1,1])
+        c = self.properties.get("color", [1, 1, 1, 1])
         glUniform4f(colorLocation, c[0], c[1], c[2], c[3])
         
         self.vao.Use()
+        
         if self.ibo is not None:
             self.ibo.Use()
             glDrawElements(GL_TRIANGLES, self.ibo.count, GL_UNSIGNED_INT, None)
         else:
+            # If no indices, use glDrawArrays with the stored vertex count.
             glDrawArrays(GL_TRIANGLES, 0, self.num_vertices)

@@ -2,7 +2,7 @@ import imgui
 import numpy as np
 from utils.graphics import Object, Camera, Shader
 from assets.shaders.shaders import object_shader , lighting_shader
-from assets.objects.objects import  get_planet , get_space_station , get_transporter
+from assets.objects.objects import  get_planet , get_space_station , get_transporter , rotation_matrix
 import random
 from OpenGL.GL import *
 
@@ -113,16 +113,24 @@ class Game:
 
             ############################################################################
             # Initialize transporter (Randomly choose start and end planet, and initialize transporter at start planet)
+            
             self.objects["transporter"] = None
-            if len(self.objects["planets"]) > 0:
-                # Pick the first planet (or choose randomly).
-                source_planet = self.objects["planets"][0]
-                transporter = get_transporter()
-                # Position the transporter at a fixed offset from the planet (e.g., slightly above it).
-                transporter["position"] = source_planet.properties["position"] + np.array([0, 0, 5], dtype=np.float32)
-                # Set an appropriate scale for the transporter.
-                transporter["scale"] = np.array([2, 2.5, 2.5], dtype=np.float32)
-                self.objects["transporter"] = Object(None, self.shaders[0], transporter)
+            transporter = get_transporter()
+            transporter["position"] = np.array([0, -1.5, -5], dtype=np.float32)
+            transporter["scale"] = np.array([0.15, 0.15, 0.15], dtype=np.float32)
+            # transporter["rotation"] = np.array([0 , np.pi/2, np.pi/2], dtype=np.float32)
+            self.objects["transporter"] = Object(None, self.shaders[0], transporter)
+            
+            # self.objects["transporter"] = None
+            # if len(self.objects["planets"]) > 0:
+            #     # Pick the first planet (or choose randomly).
+            #     source_planet = self.objects["planets"][0]
+            #     transporter = get_transporter()
+            #     # Position the transporter at a fixed offset from the planet (e.g., slightly above it).
+            #     transporter["position"] = source_planet.properties["position"] + np.array([0, 0, 5], dtype=np.float32)
+            #     # Set an appropriate scale for the transporter.
+            #     transporter["scale"] = np.array([2, 2.5, 2.5], dtype=np.float32)
+            #     self.objects["transporter"] = Object(None, self.shaders[0], transporter)
 
 
             ############################################################################
@@ -188,7 +196,55 @@ class Game:
                 # Keep the Z position the same as the orbit center (or offset it slightly if desired).
                 station_obj.properties["position"][2] = center[2]
 
-            
+            if self.objects.get("transporter") is not None:
+                transporter = self.objects["transporter"]
+                if "orientation" not in transporter.properties:
+                    t_rot = transporter.properties["rotation"]
+                    transporter.properties["orientation"] = rotation_matrix(t_rot[0], t_rot[1], t_rot[2])
+                
+                # Get current orientation.
+                current_orient = transporter.properties["orientation"]
+
+                # t_rot = self.objects["transporter"].properties["rotation"]
+                rotation_speed = 0.5  # radians per second
+                dR = np.eye(3, dtype=np.float32)
+                if inputs.get("W"):
+                    dR = dR @ rotation_matrix(rotation_speed * delta, 0, 0)[:3, :3]  # pitch down
+                if inputs.get("S"):
+                    dR = dR @ rotation_matrix(-rotation_speed * delta, 0, 0)[:3, :3]  # pitch up
+                if inputs.get("A"):
+                    dR = dR @ rotation_matrix(0, rotation_speed * delta, 0)[:3, :3]  # yaw left
+                if inputs.get("D"):
+                    dR = dR @ rotation_matrix(0, -rotation_speed * delta, 0)[:3, :3]  # yaw right
+                if inputs.get("Q"):
+                    dR = dR @ rotation_matrix(0, 0, rotation_speed * delta)[:3, :3]  # roll left
+                if inputs.get("E"):
+                    dR = dR @ rotation_matrix(0, 0, -rotation_speed * delta)[:3, :3]  # roll right
+
+                new_orient = current_orient @ dR
+                transporter.properties["orientation"] = new_orient
+
+                max_speed = 10.0    # maximum speed
+                # Initialize velocity if not already present.
+                vel = transporter.properties.get("velocity", np.array([0, 0, 0], dtype=np.float32))
+                if inputs.get("SPACE"):
+                    forward = new_orient @ np.array([0, 0, -1], dtype=np.float32)
+                    # vel += delta * forward
+                    # speed = np.linalg.norm(vel)
+                    transporter.properties["speed"] += 0.05
+
+                    if transporter.properties["speed"] > max_speed:
+                        transporter.properties["speed"] = max_speed
+
+                    transporter.properties["velocity"] = transporter.properties["speed"] * forward
+
+                    
+                else:
+                    # If SPACE is not pressed, immediately set velocity to zero.
+                    transporter.properties["speed"] = 0.0
+                    transporter.properties["velocity"] = np.array([0, 0, 0], dtype=np.float32)
+                # Update transporter position based on velocity.
+                transporter.properties["position"] += transporter.properties["velocity"] * delta
             
             # Manage inputs 
             
@@ -236,7 +292,7 @@ class Game:
             for shader in (self.shaders):
                 self.camera.Update(shader)
                 lightPosLocation = glGetUniformLocation(shader.ID, "lightPos".encode('utf-8'))
-                glUniform3f(lightPosLocation, 50.0, 50.0, 50.0)
+                glUniform3f(lightPosLocation, 100.0, 100.0, 100.0)
                 viewPosLocation = glGetUniformLocation(shader.ID, "viewPos".encode('utf-8'))
                 glUniform3f(viewPosLocation, self.camera.position[0], self.camera.position[1], self.camera.position[2])
                 glUniform1f(glGetUniformLocation(shader.ID, "ambientStrength".encode('utf-8')), 0.3)
