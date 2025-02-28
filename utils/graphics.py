@@ -1,3 +1,4 @@
+ #graphics.py
 import ctypes
 import numpy as np
 import copy
@@ -86,17 +87,16 @@ class Camera:
         
         # --- Compute the View Matrix using a standard lookAt approach ---
         # Ensure that self.position, self.lookAt, and self.up are set properly.
-        forward = self.lookAt - self.position
-        forward = forward / np.linalg.norm(forward)
-        right = np.cross(forward, self.up)
-        right = right / np.linalg.norm(right)
-        trueUp = np.cross(right, forward)
+        n = - self.lookAt / np.linalg.norm(self.lookAt)
+        u = np.cross(self.up, n)
+        u = u / np.linalg.norm(u)
+        v = np.cross(n, u)
         
         viewRotation = np.array([
-            [ right[0],   right[1],   right[2],   0],
-            [ trueUp[0],  trueUp[1],  trueUp[2],  0],
-            [ -forward[0], -forward[1], -forward[2], 0],
-            [ 0,          0,          0,          1]
+            [ u[0],   u[1],   u[2],   0],
+            [ v[0],  v[1],  v[2],  0],
+            [ n[0], n[1], n[2], 0],
+            [ 0,0,0,1]
         ], dtype=np.float32)
         
         viewTranslation = np.array([
@@ -305,3 +305,4 @@ class Object:
         else:
             # If no indices, use glDrawArrays with the stored vertex count.
             glDrawArrays(GL_TRIANGLES, 0, self.num_vertices)
+

@@ -1,3 +1,4 @@
+ #game..py
 import imgui
 import numpy as np
 from utils.graphics import Object, Camera, Shader
@@ -5,6 +6,7 @@ from assets.shaders.shaders import object_shader , lighting_shader
 from assets.objects.objects import  get_planet , get_space_station , get_transporter , rotation_matrix
 import random
 from OpenGL.GL import *
+import copy
 
 class Game:
     def __init__(self, height, width, gui):
@@ -21,7 +23,7 @@ class Game:
 
             def setCamera():
                 self.camera = Camera(self.height, self.width)
-                self.camera.position = np.array([0, 0, 1], dtype=np.float32)
+                self.camera.position = np.array([0, 0, 0], dtype=np.float32)
                 self.camera.lookAt = np.array([0, 0, -1], dtype=np.float32)
                 self.camera.up = np.array([0, 1, 0], dtype=np.float32)
                 self.camera.fov = 45
@@ -185,15 +187,11 @@ class Game:
             theta = 0.4 * delta  # Increment per frame.
 
             for station_obj in self.objects.get("stations", []):
-                # Update the Z-axis rotation (which we use as the orbital angle).
                 station_obj.properties["rotation"][2] += theta
-                # Retrieve orbit parameters.
                 radius = station_obj.properties["rotation_radius"]
                 center = station_obj.properties["init_position"]
-                # Compute new position in the X-Y plane.
                 station_obj.properties["position"][0] = center[0] + radius * np.cos(station_obj.properties["rotation"][2])
                 station_obj.properties["position"][1] = center[1] + radius * np.sin(station_obj.properties["rotation"][2])
-                # Keep the Z position the same as the orbit center (or offset it slightly if desired).
                 station_obj.properties["position"][2] = center[2]
 
             if self.objects.get("transporter") is not None:
@@ -205,47 +203,38 @@ class Game:
                 # Get current orientation.
                 current_orient = transporter.properties["orientation"]
 
-                # t_rot = self.objects["transporter"].properties["rotation"]
                 rotation_speed = 0.5  # radians per second
                 dR = np.eye(3, dtype=np.float32)
-                if inputs.get("W"):
-                    dR = dR @ rotation_matrix(rotation_speed * delta, 0, 0)[:3, :3]  # pitch down
-                if inputs.get("S"):
-                    dR = dR @ rotation_matrix(-rotation_speed * delta, 0, 0)[:3, :3]  # pitch up
-                if inputs.get("A"):
-                    dR = dR @ rotation_matrix(0, rotation_speed * delta, 0)[:3, :3]  # yaw left
-                if inputs.get("D"):
-                    dR = dR @ rotation_matrix(0, -rotation_speed * delta, 0)[:3, :3]  # yaw right
-                if inputs.get("Q"):
-                    dR = dR @ rotation_matrix(0, 0, rotation_speed * delta)[:3, :3]  # roll left
-                if inputs.get("E"):
-                    dR = dR @ rotation_matrix(0, 0, -rotation_speed * delta)[:3, :3]  # roll right
+                if inputs.get("W"): dR = dR @ rotation_matrix(rotation_speed * delta, 0, 0)[:3, :3]  # pitch down
+                if inputs.get("S"): dR = dR @ rotation_matrix(-rotation_speed * delta, 0, 0)[:3, :3]  # pitch up
+                if inputs.get("A"): dR = dR @ rotation_matrix(0, rotation_speed * delta, 0)[:3, :3]  # yaw left
+                if inputs.get("D"): dR = dR @ rotation_matrix(0, -rotation_speed * delta, 0)[:3, :3]  # yaw right
+                if inputs.get("Q"): dR = dR @ rotation_matrix(0, 0, rotation_speed * delta)[:3, :3]  # roll left
+                if inputs.get("E"): dR = dR @ rotation_matrix(0, 0, -rotation_speed * delta)[:3, :3]  # roll right
 
                 new_orient = current_orient @ dR
                 transporter.properties["orientation"] = new_orient
 
-                max_speed = 10.0    # maximum speed
-                # Initialize velocity if not already present.
-                vel = transporter.properties.get("velocity", np.array([0, 0, 0], dtype=np.float32))
-                if inputs.get("SPACE"):
-                    forward = new_orient @ np.array([0, 0, -1], dtype=np.float32)
-                    # vel += delta * forward
-                    # speed = np.linalg.norm(vel)
-                    transporter.properties["speed"] += 0.05
+                max_speed = 10.0 
 
+                forward_spaceship = new_orient @ np.array([0, 0, -1], dtype=np.float32)
+                up_spaceship = new_orient @ np.array([0, 1, 0], dtype=np.float32)
+
+                if inputs.get("SPACE"):
+                    transporter.properties["speed"] += 0.05
                     if transporter.properties["speed"] > max_speed:
                         transporter.properties["speed"] = max_speed
 
-                    transporter.properties["velocity"] = transporter.properties["speed"] * forward
-
-                    
+                    transporter.properties["velocity"] = transporter.properties["speed"] * forward_spaceship
                 else:
-                    # If SPACE is not pressed, immediately set velocity to zero.
                     transporter.properties["speed"] = 0.0
                     transporter.properties["velocity"] = np.array([0, 0, 0], dtype=np.float32)
-                # Update transporter position based on velocity.
+
                 transporter.properties["position"] += transporter.properties["velocity"] * delta
             
+                self.camera.lookAt = forward_spaceship
+                self.camera.up = up_spaceship
+                self.camera.position = copy.deepcopy(transporter.properties["position"]) - (5*forward_spaceship) + (up_spaceship)
             # Manage inputs 
             
             ############################################################################
@@ -325,3 +314,4 @@ class Game:
             #     pirate.Draw()
             ######################################################
             pass
+
