@@ -1,9 +1,9 @@
- #game..py
+#game..py
 import imgui
 import numpy as np
 from utils.graphics import Object, Camera, Shader
 from assets.shaders.shaders import object_shader , lighting_shader
-from assets.objects.objects import  get_planet , get_space_station , get_transporter , rotation_matrix
+from assets.objects.objects import  get_planet , get_space_station , get_transporter , rotation_matrix , get_pirate
 import random
 from OpenGL.GL import *
 import copy
@@ -31,20 +31,12 @@ class Game:
                 self.camera.far = 10000.0
                 
             setCamera()
-            ############################################################################
 
             def setWorldLimits():
                 self.worldMin = np.array([-5000, -5000, -5000], dtype=np.float32)
                 self.worldMax = np.array([5000, 5000, 5000], dtype=np.float32)
             setWorldLimits()
 
-            ############################################################################
-
-            
-
-            ############################################################################
-
-            # Initialize Planets and space stations (Randomly place n planets and n spacestations within world bounds)
             self.n_planets = 10 # for example
 
             self.objects["planets"] = []
@@ -52,12 +44,10 @@ class Game:
                 bottom_color = np.array([random.random(), random.random(), random.random()])
                 top_color = np.array([random.random(), random.random(), random.random()])
 
-                planet = get_planet(bottom_color , top_color)  # get default planet properties with gradient colors
-                # Set a random position: x in [-300,300], y in [-300,300], z in [-150, -30]
+                planet = get_planet(bottom_color , top_color)  
                 
                 if "normals" not in planet:
                     n_vertices = len(planet["vertices"]) // 3
-                    # Create a flat array of n_vertices copies of (0, 0, 1)
                     default_normals = np.tile(np.array([0, 0, 1], dtype=np.float32), n_vertices)
                     planet["normals"] = default_normals
 
@@ -68,12 +58,14 @@ class Game:
                 ], dtype=np.float32)
 
                 planet["position"] = pos
-                # Optionally, set a random uniform scale between 0.5 and 2.0
                 scale_val = 5.0
                 planet["scale"] = np.array([scale_val, scale_val, scale_val], dtype=np.float32)
-                # Create the planet object and add it to the list
                 self.objects["planets"].append(Object(None, self.shaders[0], planet))
             
+            # Select a destination planet (randomly for now)
+            if len(self.objects["planets"]) > 0:
+                self.destination_planet = random.choice(self.objects["planets"])
+                print("Destination planet position:", self.destination_planet.properties["position"])
 
             self.objects["stations"] = []
             for planet_obj in self.objects.get("planets", []):
@@ -85,59 +77,76 @@ class Game:
                 
                 orbit_radius = 10.0  # Adjust as needed
                 orbit_angle = random.uniform(0, 2 * np.pi)
-                # inclination = random.uniform(-np.radians(60), np.radians(60))  # Adjust as needed
     
-                # Compute the initial offset based on orbit_radius and orbit_angle.
                 offset = np.array([
                     orbit_radius * np.cos(orbit_angle) ,
                     0,
-                    orbit_radius * np.sin(orbit_angle)  # For simplicity, keep z offset zero. Adjust if needed.
+                    orbit_radius * np.sin(orbit_angle) 
                 ], dtype=np.float32)
 
-                # Tie the station to its planet: the orbit center is the planet's position.
                 orbit_center = planet_obj.properties["position"].copy()
                 
                 station["orbitCenter"] = planet_obj.properties["position"].copy()
 
                 station["position"] = orbit_center + offset
-                # Store the orbital properties using our custom keys.
                 station["rotation_radius"] = orbit_radius
                 station["init_position"] = orbit_center.copy()
-                # Also store the current orbit angle in the Z rotation component.
                 station["rotation"] =  np.array([0, 0, orbit_angle], dtype=np.float32)
                 station["scale"] = np.array([0.7, 0.7, 0.7], dtype=np.float32)
                 self.objects["stations"].append(Object(None, self.shaders[0], station))
-                
-                # Optionally, make the station smaller.
-                
-                # Create the station object and add it to our stations list.
-                # self.objects["stations"].append(Object(None, self.shaders[0], station))
 
-            ############################################################################
-            # Initialize transporter (Randomly choose start and end planet, and initialize transporter at start planet)
-            
-            self.objects["transporter"] = None
+            # Initialize transporter and set its starting position on a randomly chosen source station.
+            if len(self.objects["stations"]) >= 2:
+                indices = list(range(len(self.objects["stations"])))
+                source_index = random.choice(indices)
+                indices.remove(source_index)
+                destination_index = random.choice(indices)
+            else:
+                source_index = 0
+                destination_index = 0
+
+            print(f"Source index: {source_index}, Destination index: {destination_index}")
+
+            source_station = self.objects["stations"][source_index]
+            destination_station = self.objects["stations"][destination_index]
+
+            # Store the destination for later use
+            self.destination_station = destination_station
+
+            # self.objects["transporter"] = None
             transporter = get_transporter()
-            transporter["position"] = np.array([0, -1.5, -5], dtype=np.float32)
-            transporter["scale"] = np.array([0.15, 0.15, 0.15], dtype=np.float32)
-            # transporter["rotation"] = np.array([0 , np.pi/2, np.pi/2], dtype=np.float32)
+            transporter["position"] = copy.deepcopy(source_station.properties["position"])+ np.array([0, -1.0, 0], dtype=np.float32)
+            print("Source station position: ", source_station.properties["position"])
+            print("Transporter position: ", transporter["position"])
+            print("Destination station position: ", destination_station.properties["position"])
+            transporter["scale"] = np.array([0.2, 0.2, 0.2], dtype=np.float32)
             self.objects["transporter"] = Object(None, self.shaders[0], transporter)
             
-            # self.objects["transporter"] = None
-            # if len(self.objects["planets"]) > 0:
-            #     # Pick the first planet (or choose randomly).
-            #     source_planet = self.objects["planets"][0]
-            #     transporter = get_transporter()
-            #     # Position the transporter at a fixed offset from the planet (e.g., slightly above it).
-            #     transporter["position"] = source_planet.properties["position"] + np.array([0, 0, 5], dtype=np.float32)
-            #     # Set an appropriate scale for the transporter.
-            #     transporter["scale"] = np.array([2, 2.5, 2.5], dtype=np.float32)
-            #     self.objects["transporter"] = Object(None, self.shaders[0], transporter)
+            self.n_pirates = 15 # for example
 
+            # After you've created stations and the transporter, create a pirate list.
+            self.objects["pirates"] = []
+            for i in range(self.n_pirates):
+                pirate = get_pirate()
+                
+                pos = np.array([
+                    np.random.uniform(-50, 50),
+                    np.random.uniform(-50, 50),
+                    np.random.uniform(-150, 40)
+                ], dtype=np.float32)
 
-            ############################################################################
-            # Initialize Pirates (Spawn at random locations within world bounds)
-            self.n_pirates = 20 # for example
+                pirate["position"] = pos
+                # Optionally scale the pirate smaller or bigger
+                pirate["scale"] = np.array([1, 1, 1], dtype=np.float32)
+
+                speed = 5
+                direction = np.random.uniform(-1, 1, size=3)
+                direction_norm = np.linalg.norm(direction)
+                if direction_norm > 0:
+                    direction = direction / direction_norm  # normalize
+                pirate["velocity"] = direction * speed
+                pirate_obj = Object(None, self.shaders[0], pirate)
+                self.objects["pirates"].append(pirate_obj)
 
             ############################################################################
             # Initialize minimap arrow (Need to write orthographic projection shader for it)
@@ -177,10 +186,7 @@ class Game:
             pass
         
     def UpdateScene(self, inputs, time):
-        if self.screen == 1: # Game screen
-            ############################################################################
-
-            # Update each space station's orbital motion.
+        if self.screen == 1: 
             # angular_speed = 0.5  # radians per second (adjust as needed)
             # delta = time["deltaTime"]
             delta = time["deltaTime"]
@@ -193,6 +199,24 @@ class Game:
                 station_obj.properties["position"][0] = center[0] + radius * np.cos(station_obj.properties["rotation"][2])
                 station_obj.properties["position"][1] = center[1] + radius * np.sin(station_obj.properties["rotation"][2])
                 station_obj.properties["position"][2] = center[2]
+            
+            for pirate_obj in self.objects.get("pirates", []):
+                pos = pirate_obj.properties["position"]
+                vel = pirate_obj.properties["velocity"]
+                
+                # Update position
+                new_pos = pos + vel * delta
+                for axis in range(3):
+                    if new_pos[axis] < self.worldMin[axis]:
+                        new_pos[axis] = self.worldMin[axis]
+                        vel[axis] = -vel[axis]  # bounce
+                    elif new_pos[axis] > self.worldMax[axis]:
+                        new_pos[axis] = self.worldMax[axis]
+                        vel[axis] = -vel[axis]  # bounce
+                
+                pirate_obj.properties["position"] = new_pos
+                pirate_obj.properties["velocity"] = vel
+
 
             if self.objects.get("transporter") is not None:
                 transporter = self.objects["transporter"]
@@ -200,7 +224,6 @@ class Game:
                     t_rot = transporter.properties["rotation"]
                     transporter.properties["orientation"] = rotation_matrix(t_rot[0], t_rot[1], t_rot[2])
                 
-                # Get current orientation.
                 current_orient = transporter.properties["orientation"]
 
                 rotation_speed = 0.5  # radians per second
@@ -275,9 +298,7 @@ class Game:
     
     def DrawScene(self):
         if self.screen == 1: 
-            ######################################################
-            # Example draw statements
-            
+
             for shader in (self.shaders):
                 self.camera.Update(shader)
                 lightPosLocation = glGetUniformLocation(shader.ID, "lightPos".encode('utf-8'))
@@ -296,6 +317,71 @@ class Game:
             
             if self.objects.get("transporter") is not None:
                 self.objects["transporter"].Draw()
+            
+            for pirate_obj in self.objects.get("pirates", []):
+                pirate_obj.Draw()
+
+
+            # START ImGui rendering properly (BEFORE any ImGui drawing)
+            imgui.new_frame()
+
+            if (self.destination_planet is not None) and (self.objects.get("transporter") is not None):
+                # Get positions (world positions)
+                transporter_pos = self.objects["transporter"].properties["position"]
+                destination_pos = self.destination_planet.properties["position"]
+                # Compute horizontal difference (using X and Z) for direction.
+                diff_x = destination_pos[0] - transporter_pos[0]
+                diff_z = destination_pos[2] - transporter_pos[2]
+                angle = np.arctan2(diff_z, diff_x)  # angle in radians
+                
+                # Compute elevation difference (Y difference)
+                elev_diff = destination_pos[1] - transporter_pos[1]
+                
+                # Get distance to destination for display
+                distance = np.sqrt(diff_x**2 + diff_z**2 + elev_diff**2)
+                
+                # Define arrow's center in a corner (top-right) for better visibility
+                arrow_center = (self.width - 100, 100)
+                
+                # Make arrow much bigger for better visibility
+                arrow_size = 40
+                local_points = [
+                    (0, -arrow_size*2), 
+                    (-arrow_size, arrow_size), 
+                    (arrow_size, arrow_size)
+                ]
+                
+                # Set arrow color based on elevation difference
+                if elev_diff > 1.0:
+                    col_u32 = imgui.get_color_u32_rgba(1.0, 0.0, 0.0, 1.0)  # red: destination is higher
+                elif elev_diff < -1.0:
+                    col_u32 = imgui.get_color_u32_rgba(0.0, 0.0, 1.0, 1.0)  # blue: destination is lower
+                else:
+                    col_u32 = imgui.get_color_u32_rgba(1.0, 1.0, 0.0, 1.0)  # yellow: nearly equal
+                
+                # Fixed rotation calculation
+                cos_a = np.cos(angle)
+                sin_a = np.sin(angle)
+                
+                # Rotate and translate each point correctly
+                p1x = local_points[0][0] * cos_a - local_points[0][1] * sin_a + arrow_center[0]
+                p1y = local_points[0][0] * sin_a + local_points[0][1] * cos_a + arrow_center[1]
+                p2x = local_points[1][0] * cos_a - local_points[1][1] * sin_a + arrow_center[0]
+                p2y = local_points[1][0] * sin_a + local_points[1][1] * cos_a + arrow_center[1]
+                p3x = local_points[2][0] * cos_a - local_points[2][1] * sin_a + arrow_center[0]
+                p3y = local_points[2][0] * sin_a + local_points[2][1] * cos_a + arrow_center[1]
+                
+                # Draw the filled triangle
+                draw_list = imgui.get_foreground_draw_list()
+                draw_list.add_triangle_filled(p1x, p1y, p2x, p2y, p3x, p3y, col_u32)
+                
+                # Add distance indicator text
+                draw_list.add_text(arrow_center[0] - 50, arrow_center[1] + 40, 
+                                imgui.get_color_u32_rgba(1.0, 1.0, 1.0, 1.0), 
+                                f"Distance: {distance:.1f} units")
+                
+            imgui.render()
+            self.gui.render(imgui.get_draw_data())
 
             # self.gameState["transporter"].Draw()
             # self.gameState["stars"].Draw()

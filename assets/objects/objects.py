@@ -243,3 +243,31 @@ def get_transporter():
         'speed': 0.05
     }
     return transporter_properties
+
+def get_pirate():
+    # Construct the path to your "pirate.obj" file
+    file_path = os.path.join(os.path.dirname(__file__), "models", "pirate.obj")
+    
+    # Load positions and normals (if the pirate model has them). 
+    # If your pirate doesn't need rotation, just pass a default array. 
+    positions, normals = load_obj_with_normals(file_path)
+
+    # We'll create a simple uniform color (e.g. grey) or random color, or you can do a gradient.
+    num_vertices = len(positions) // 3
+    # For demonstration, let's make it a uniform grey: (0.5,0.5,0.5,1)
+    colors = np.tile(np.array([1, 0.0 , 0.0, 1.0], dtype=np.float32), num_vertices)
+    
+    pirate_properties = {
+        'positions': positions,
+        'normals': normals,
+        'colors': colors,
+        # We'll set position in game.py
+        'position': np.array([0,0,0], dtype=np.float32),
+        'velocity': np.array([0,0,0], dtype=np.float32),
+        'rotation': np.array([0,0,0], dtype=np.float32),
+        'scale': np.array([1,1,1], dtype=np.float32),
+        # fallback color if needed
+        'color': np.array([0.5,0.5,0.5,1.0], dtype=np.float32),
+        'sens': 250,
+    }
+    return pirate_properties
