@@ -165,19 +165,41 @@ class Game:
             imgui.set_next_window_size(window_w, window_h)
             imgui.begin("Main Menu", False, imgui.WINDOW_NO_MOVE | imgui.WINDOW_NO_COLLAPSE | imgui.WINDOW_NO_RESIZE)
 
-            # Center text horizontally
-            imgui.set_cursor_pos_x((window_w - imgui.calc_text_size("Press 1: New Game")[0]) / 2)
-            imgui.text("Press 1: New Game")
+            if imgui.button("Start Game" , 395 , 80):
+                self.screen = 1
+                self.InitScene()
+            if imgui.button("Exit" , 395 , 80):
+                exit(0)  # Alternatively, use sys.exit(0) if you import sys
 
             imgui.end()
 
             imgui.render()
             self.gui.render(imgui.get_draw_data())
 
-        if self.screen == 2: # YOU WON Screen
-            pass
+        if self.screen == 2:  # YOU WON Screen
+            window_w, window_h = 400, 200  # Set the window size for the Game Won screen
+            x_pos = (self.width - window_w) / 2
+            y_pos = (self.height - window_h) / 2
 
-        if self.screen == 3: # GAME OVER Screen
+            imgui.new_frame()
+            imgui.set_next_window_position(x_pos, y_pos)
+            imgui.set_next_window_size(window_w, window_h)
+            imgui.begin("Game Won", False, imgui.WINDOW_NO_MOVE | imgui.WINDOW_NO_COLLAPSE | imgui.WINDOW_NO_RESIZE)
+            
+            # Center the "GAME WON" text horizontally.
+            imgui.set_cursor_pos_x((window_w - imgui.calc_text_size("GAME WON")[0]) / 2)
+            imgui.text("GAME WON")
+            
+            # Add a "Back to Menu" button.
+            if imgui.button("Back to Menu", 395, 80):
+                self.screen = 0   # Go back to the start menu screen
+            
+            imgui.end()
+            imgui.render()
+            self.gui.render(imgui.get_draw_data())
+
+
+        if self.screen == 3:  # GAME OVER Screen
             window_w, window_h = 400, 200  # Set the window size for the Game Over screen
             x_pos = (self.width - window_w) / 2
             y_pos = (self.height - window_h) / 2
@@ -186,11 +208,19 @@ class Game:
             imgui.set_next_window_position(x_pos, y_pos)
             imgui.set_next_window_size(window_w, window_h)
             imgui.begin("Game Over", False, imgui.WINDOW_NO_MOVE | imgui.WINDOW_NO_COLLAPSE | imgui.WINDOW_NO_RESIZE)
+            
+            # Center the "GAME OVER" text horizontally.
             imgui.set_cursor_pos_x((window_w - imgui.calc_text_size("GAME OVER")[0]) / 2)
             imgui.text("GAME OVER")
+            
+            # Add a "Back to Menu" button.
+            if imgui.button("Back to Menu", 395, 80):
+                self.screen = 0   # Go back to the start menu screen
+            
             imgui.end()
             imgui.render()
             self.gui.render(imgui.get_draw_data())
+
             
         
     def UpdateScene(self, inputs, time):
@@ -276,16 +306,14 @@ class Game:
                 self.camera.lookAt = forward_spaceship
                 self.camera.up = up_spaceship
                 self.camera.position = copy.deepcopy(transporter.properties["position"]) - (5*forward_spaceship) + (up_spaceship)
-            # Manage inputs 
-            
-            ############################################################################
-            # Update transporter (Update velocity, position, and check for collisions)
-           
 
-            ############################################################################
-            # Update spacestations (Update velocity and position to revolve around respective planet)
+                dest_pos = self.destination_planet.properties["position"]
+                transport_pos = transporter.properties["position"]
+                distance_to_destination = np.linalg.norm(dest_pos - transport_pos)
+                if distance_to_destination < 5.0:
+                    print("Game Won! Distance:", distance_to_destination)
+                    self.screen = 2  # Switch to game-won screen
             
-
             ############################################################################
             # Update Minimap Arrow: (Set direction based on transporter velocity direction and target direction)
             
