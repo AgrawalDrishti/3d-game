@@ -300,7 +300,7 @@ def get_pirate():
     # We'll create a simple uniform color (e.g. grey) or random color, or you can do a gradient.
     num_vertices = len(positions) // 3
     # For demonstration, let's make it a uniform grey: (0.5,0.5,0.5,1)
-    colors = np.tile(np.array([0, 1.0 , 0.0, 1.0], dtype=np.float32), num_vertices)
+    colors = np.tile(np.array([1.0, 0.0 , 0.0, 1.0], dtype=np.float32), num_vertices)
     
     pirate_properties = {
         'positions': positions,
@@ -329,7 +329,7 @@ def get_laser():
     for vertex in positions_reshaped:
         y = vertex[1]
         t = (y - min_y) / (max_y - min_y) if max_y != min_y else 0.0
-        color = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+        color = np.array([1.0, 0.66, 0.0], dtype=np.float32)
         colors.extend(list(color) + [1.0])
     colors = np.array(colors, dtype=np.float32)
 
@@ -341,7 +341,7 @@ def get_laser():
         'velocity': np.array([0, 0, 0], dtype=np.float32),
         'rotation': np.array([0, 0, 0], dtype=np.float32),
         'scale': np.array([1, 1, 1], dtype=np.float32),
-        'color': np.array([0.2, 0.6, 1.0, 1.0], dtype=np.float32),
+        'color': np.array([1.0, 0.654, 0.0, 1.0], dtype=np.float32),
         'sens': 250,
     }
     return planet_properties

@@ -47,22 +47,22 @@ class Game:
     def spawn_laser(self):
         laser = get_laser()
         laser["position"] = copy.deepcopy(self.camera.position)
-        laser_speed = 20.0  
+        laser_speed = 500.0  
         laser["velocity"] = self.camera.lookAt * laser_speed
-        laser["scale"] = np.array([0.1, 0.1, 0.1], dtype=np.float32)
+        laser["scale"] = np.array([0.05, 0.05, 0.05], dtype=np.float32)
         
         self.objects["lasers"].append(Object(None, self.shaders[0], laser))
 
     def InitScene(self):
         if self.screen == 1:
-
+            self.view_mode = "3rd"
             def setCamera():
                 self.camera = Camera(self.height, self.width)
                 self.camera.position = np.array([0, 0, 0], dtype=np.float32)
                 self.camera.lookAt = np.array([0, 0, -1], dtype=np.float32)
                 self.camera.up = np.array([0, 1, 0], dtype=np.float32)
-                self.camera.fov = 45
-                self.camera.near = 1.0
+                self.camera.fov = 90
+                self.camera.near = 0.1
                 self.camera.far = 10000.0
                 
             setCamera()
@@ -87,13 +87,13 @@ class Game:
                     planet["normals"] = default_normals
 
                 pos = np.array([
-                    np.random.uniform(-200, 200),
-                    np.random.uniform(-200, 200),
-                    np.random.uniform(-200, 200)
+                    np.random.uniform(-5000, 5000),
+                    np.random.uniform(-5000, 5000),
+                    np.random.uniform(-5000, 5000)
                 ], dtype=np.float32)
 
                 planet["position"] = pos
-                scale_val = 5.0
+                scale_val = 50.0
                 planet["scale"] = np.array([scale_val, scale_val, scale_val], dtype=np.float32)
                 self.objects["planets"].append(Object(None, self.shaders[0], planet))
             
@@ -117,7 +117,7 @@ class Game:
                     n_vertices = len(station["vertices"]) // 3
                     station["normals"] = np.tile(np.array([0, 0, 1], dtype=np.float32), n_vertices)
                 
-                orbit_radius = 10.0  # Adjust as needed
+                orbit_radius = 60.0  # Adjust as needed
                 orbit_angle = random.uniform(0, 2 * np.pi)
     
                 offset = np.array([
@@ -134,7 +134,7 @@ class Game:
                 station["rotation_radius"] = orbit_radius
                 station["init_position"] = orbit_center.copy()
                 station["rotation"] =  np.array([0, 0, orbit_angle], dtype=np.float32)
-                station["scale"] = np.array([0.7, 0.7, 0.7], dtype=np.float32)
+                station["scale"] = np.array([5, 5, 5], dtype=np.float32)
                 self.objects["stations"].append(Object(None, self.shaders[0], station))
 
             print(f"Source index: {source_index}, Destination index: {destination_index}")
@@ -154,21 +154,21 @@ class Game:
             transporter["scale"] = np.array([0.2, 0.2, 0.2], dtype=np.float32)
             self.objects["transporter"] = Object(None, self.shaders[0], transporter)
             
-            self.n_pirates = 0 
+            self.n_pirates = 20 
             self.objects["pirates"] = []
             for i in range(self.n_pirates):
                 pirate = get_pirate()
                 
                 pos = np.array([
-                    np.random.uniform(-100, 100),
-                    np.random.uniform(-100, 100),
-                    np.random.uniform(-100, 100)
+                    np.random.uniform(-4000, 4000),
+                    np.random.uniform(-4000, 4000),
+                    np.random.uniform(-4000, 4000)
                 ], dtype=np.float32)
 
                 pirate["position"] = pos
                 pirate["scale"] = np.array([1, 1, 1], dtype=np.float32)
 
-                speed = 15
+                speed = 50
                 direction = np.random.uniform(-1, 1, size=3)
                 direction_norm = np.linalg.norm(direction)
                 if direction_norm > 0:
@@ -267,7 +267,7 @@ class Game:
             # Update pirates so that they chase the transporter
             if self.objects.get("pirates") is not None and self.objects.get("transporter") is not None:
                 transporter_pos = self.objects["transporter"].properties["position"]
-                chase_speed = 7.0  
+                chase_speed = 50.0  
                 for pirate_obj in self.objects.get("pirates", []):
                     pirate_pos = pirate_obj.properties["position"]
                     direction = transporter_pos - pirate_pos
@@ -310,7 +310,7 @@ class Game:
                     new_orient = current_orient @ dR
                     transporter.properties["orientation"] = new_orient
 
-                    max_speed = 10.0 
+                    max_speed = 60.0 
 
                     forward_spaceship = new_orient @ np.array([0, 0, -1], dtype=np.float32)
                     up_spaceship = new_orient @ np.array([0, 1, 0], dtype=np.float32)
@@ -331,24 +331,32 @@ class Game:
                     self.camera.up = up_spaceship
                     self.camera.position = copy.deepcopy(transporter.properties["position"]) - (5*forward_spaceship) + (up_spaceship)
 
-                    dest_pos = self.destination_planet.properties["position"]
+                    dest_pos = self.destination_station.properties["position"]
                     transport_pos = transporter.properties["position"]
                     distance_to_destination = np.linalg.norm(dest_pos - transport_pos)
-                    if distance_to_destination < 5.0:
+                    if distance_to_destination < 10.0:
                         print("Game Won! Distance:", distance_to_destination)
                         self.screen = 2  # Switch to game-won screen
 
-            else: 
-                # if not hasattr(self, "prev_left_click"):
-                #     self.prev_left_click = False
-
-                # current_left_click = inputs.get("L_CLICK", False)
-
-                 # Edge detection: only spawn a laser when the button transitions from not pressed to pressed.
+            else:               
                 if inputs.get("L_CLICK"):
                     self.spawn_laser()
                     print("Laser fired!")
-                # self.prev_left_click = current_left_click
+                
+                mousedelta = np.linalg.norm(inputs["mouseDelta"])/1000 * time['deltaTime']
+                cam_left = np.cross(self.camera.up, self.camera.lookAt)
+                if inputs["mouseDelta"][0] < 0:
+                    self.camera.lookAt = self.camera.lookAt + mousedelta * cam_left
+                if inputs["mouseDelta"][0] > 0:
+                    self.camera.lookAt = self.camera.lookAt - mousedelta * cam_left
+                if inputs["mouseDelta"][1] < 0:
+                    self.camera.lookAt = self.camera.lookAt + mousedelta * self.camera.up
+                if inputs["mouseDelta"][1] > 0:
+                    self.camera.lookAt = self.camera.lookAt - mousedelta * self.camera.up
+
+                self.camera.lookAt = self.camera.lookAt / np.linalg.norm(self.camera.lookAt)
+                self.camera.up = np.cross(self.camera.lookAt, cam_left)
+
 
                 if self.objects.get("transporter") is not None:
                     transporter = self.objects["transporter"]
@@ -376,34 +384,28 @@ class Game:
                     transporter.properties["position"] += transporter.properties["velocity"] * delta
 
                     # In 1st person view, the camera is attached directly to the transporter.
-                    camera_offset = (-1.0* forward_spaceship) + (0.5 * up_spaceship)
+                    camera_offset = (-0.0* forward_spaceship) + (1.0* up_spaceship)
                     self.camera.position = copy.deepcopy(transporter.properties["position"]) + camera_offset
 
-                    self.camera.lookAt = forward_spaceship
-                    self.camera.up = up_spaceship 
+                    # self.camera.lookAt = forward_spaceship
+                    # self.camera.up = up_spaceship 
 
                 # --- Update lasers ---
                 if "lasers" in self.objects:
-                    # Use a copy of the list to allow removal of lasers safely.
                     for laser_obj in self.objects["lasers"][:]:
-                        # Update laser position.
                         laser_obj.properties["position"] += laser_obj.properties["velocity"] * delta
                         
-                        # Optionally: Remove laser if it travels too far.
-                        # For example, if the laser is more than 1000 units away from origin:
-                        if np.linalg.norm(laser_obj.properties["position"]) > 1000:
+                        if np.linalg.norm(laser_obj.properties["position"]) > 5000:
                             self.objects["lasers"].remove(laser_obj)       
-            ############################################################################
-            # Update Minimap Arrow: (Set direction based on transporter velocity direction and target direction)
-            
-
-            ############################################################################
-            # Update Lasers (Update position of any currently shot lasers, make sure to despawn them if they go too far to save computation)
-           
             
             ############################################################################
             # Update Pirates (Write logic to update their velocity based on transporter position, and check for collision with laser or transporter)
-            
+            for pirate in self.objects['pirates']:
+                for laser in self.objects['lasers']:
+                    if np.linalg.norm(pirate.properties['position'] - laser.properties['position']) < 50:
+                        self.objects['pirates'].remove(pirate)
+                        self.objects['lasers'].remove(laser)
+                        break
 
             ############################################################################
             # Update Camera (Check for view (3rd person or 1st person) and set position and LookAt accordingly)
@@ -454,10 +456,10 @@ class Game:
             imgui.new_frame()
             self.DrawCrosshair()
 
-            if (self.destination_planet is not None) and (self.objects.get("transporter") is not None):
+            if (self.destination_station is not None) and (self.objects.get("transporter") is not None):
                 # Get positions (world positions)
                 transporter_pos = self.objects["transporter"].properties["position"]
-                destination_pos = self.destination_planet.properties["position"]
+                destination_pos = self.destination_station.properties["position"]
                 # Compute horizontal difference (using X and Z) for direction.
                 diff_x = destination_pos[0] - transporter_pos[0]
                 diff_z = destination_pos[2] - transporter_pos[2]
