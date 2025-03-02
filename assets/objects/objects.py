@@ -142,7 +142,6 @@ def get_planet(bottom_color , top_color):
     }
     return planet_properties
 
-
 def create_sphere(radius, segments):
     vertices = []
     indices = []
@@ -202,7 +201,6 @@ def get_space_station(is_destination_space_station=False):
         station_properties['colors'] = np.tile(green_color, num_vertices)
 
     return station_properties
-
 
 def get_transporter():
     # Construct the path to your transporter.obj file.
@@ -279,3 +277,30 @@ def get_pirate():
         'sens': 250,
     }
     return pirate_properties
+
+def get_laser():
+    # Construct the path to your laser.obj file.
+    file_path = os.path.join(os.path.dirname(__file__), "models", "laser.obj")
+    positions, normals = load_obj_with_normals(file_path)
+    num_vertices = len(positions) // 3
+
+    # Assign a uniform color to the laser.
+    # You can choose any color; here, we use a bright yellow.
+    laser_color = np.array([1.0, 1.0, 0.0, 1.0], dtype=np.float32)
+    colors = np.tile(laser_color, num_vertices)
+
+    laser_properties = {
+        'positions': positions,
+        'normals': normals,
+        'colors': colors,
+        # Initial position can be set dynamically when the laser is fired.
+        'position': np.array([0, 0, 0], dtype=np.float32),
+        # Lasers will have velocity when fired.
+        'velocity': np.array([0, 0, 0], dtype=np.float32),
+        'rotation': np.array([0, 0, 0], dtype=np.float32),
+        # Scale might be adjusted based on your desired laser size.
+        'scale': np.array([1, 1, 1], dtype=np.float32),
+        'color': laser_color,
+        'sens': 250,
+    }
+    return laser_properties

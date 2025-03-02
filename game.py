@@ -3,7 +3,7 @@ import imgui
 import numpy as np
 from utils.graphics import Object, Camera, Shader
 from assets.shaders.shaders import object_shader , lighting_shader
-from assets.objects.objects import  get_planet , get_space_station , get_transporter , rotation_matrix , get_pirate
+from assets.objects.objects import  get_planet , get_space_station , get_transporter , rotation_matrix , get_pirate , get_laser
 import random
 from OpenGL.GL import *
 import copy
@@ -16,7 +16,59 @@ class Game:
         self.screen = 0
         self.shaders = [Shader(lighting_shader["vertex_shader"], lighting_shader["fragment_shader"])]
         self.objects = {}
-    
+        self.view_mode = "3rd"
+        self.prev_right_click = False
+
+    def DrawCrosshair(self):
+        # Only draw the crosshair in 1st person view
+        if self.view_mode == "1st":
+            # Compute the center of the window
+            center_x = self.width / 2
+            center_y = self.height / 2
+
+            # Crosshair settings: length of each line and thickness
+            crosshair_length = 10  # half-length of the crosshair lines
+            thickness = 2.0
+            color = imgui.get_color_u32_rgba(1.0, 1.0, 1.0, 1.0)  # white color
+
+            # Get the current ImGui foreground draw list
+            draw_list = imgui.get_foreground_draw_list()
+
+            # Draw horizontal line
+            draw_list.add_line(center_x - crosshair_length, center_y,
+                            center_x + crosshair_length, center_y,
+                            color, thickness)
+            # Draw vertical line
+            draw_list.add_line(center_x, center_y - crosshair_length,
+                            center_x, center_y + crosshair_length,
+                            color, thickness)
+
+    def spawn_laser(self):
+        # Ensure there's a list to store active lasers.
+        if "lasers" not in self.objects:
+            self.objects["lasers"] = []
+            
+        # Create a new laser using your get_laser() function.
+        laser = get_laser()
+        
+        # Use the transporter's current position and orientation.
+        transporter = self.objects["transporter"]
+        # Ensure an orientation exists.
+        if "orientation" not in transporter.properties:
+            transporter.properties["orientation"] = rotation_matrix(*transporter.properties["rotation"])
+        current_orient = transporter.properties["orientation"]
+        forward = current_orient @ np.array([0, 0, -1], dtype=np.float32)
+        
+        # Set the laser's starting position at the transporter's position.
+        laser["position"] = copy.deepcopy(transporter.properties["position"])
+        # Define a speed for the laser blast.
+        laser_speed = 20.0  # Adjust as needed.
+        laser["velocity"] = forward * laser_speed
+        # Optionally, adjust the scale for visual clarity.
+        laser["scale"] = np.array([0.1, 0.1, 0.1], dtype=np.float32)
+        
+        # Create an Object instance for the laser and add it to your objects list.
+        self.objects["lasers"].append(Object(None, self.shaders[0], laser))
 
     def InitScene(self):
         if self.screen == 1:
@@ -143,6 +195,13 @@ class Game:
                 self.objects["pirates"].append(pirate_obj)
 
     def ProcessFrame(self, inputs, time):
+        current_right_click = inputs.get("R_CLICK", False)
+        if current_right_click and not self.prev_right_click:
+            # Toggle view mode.
+            self.view_mode = "1st" if self.view_mode == "3rd" else "3rd"
+            print("Switched to", self.view_mode, "person view")
+        self.prev_right_click = current_right_click
+
         self.DrawText()
         self.UpdateScene(inputs, time)
         self.DrawScene()
@@ -208,9 +267,7 @@ class Game:
             imgui.end()
             imgui.render()
             self.gui.render(imgui.get_draw_data())
-
-            
-        
+     
     def UpdateScene(self, inputs, time):
         if self.screen == 1: 
             delta = time["deltaTime"]
@@ -248,55 +305,90 @@ class Game:
                         print("Collision detected! Game Over.")
                         self.screen = 3 
                         break
+            
+            if self.view_mode == "3rd":
+                if self.objects.get("transporter") is not None:
+                    transporter = self.objects["transporter"]
+                    if "orientation" not in transporter.properties:
+                        t_rot = transporter.properties["rotation"]
+                        transporter.properties["orientation"] = rotation_matrix(t_rot[0], t_rot[1], t_rot[2])
+                    
+                    current_orient = transporter.properties["orientation"]
 
-            if self.objects.get("transporter") is not None:
-                transporter = self.objects["transporter"]
-                if "orientation" not in transporter.properties:
-                    t_rot = transporter.properties["rotation"]
-                    transporter.properties["orientation"] = rotation_matrix(t_rot[0], t_rot[1], t_rot[2])
+                    rotation_speed = 0.5  # radians per second
+                    dR = np.eye(3, dtype=np.float32)
+                    if inputs.get("W"): dR = dR @ rotation_matrix(rotation_speed * delta, 0, 0)[:3, :3]  # pitch down
+                    if inputs.get("S"): dR = dR @ rotation_matrix(-rotation_speed * delta, 0, 0)[:3, :3]  # pitch up
+                    if inputs.get("A"): dR = dR @ rotation_matrix(0, rotation_speed * delta, 0)[:3, :3]  # yaw left
+                    if inputs.get("D"): dR = dR @ rotation_matrix(0, -rotation_speed * delta, 0)[:3, :3]  # yaw right
+                    if inputs.get("Q"): dR = dR @ rotation_matrix(0, 0, rotation_speed * delta)[:3, :3]  # roll left
+                    if inputs.get("E"): dR = dR @ rotation_matrix(0, 0, -rotation_speed * delta)[:3, :3]  # roll right
+
+                    new_orient = current_orient @ dR
+                    transporter.properties["orientation"] = new_orient
+
+                    max_speed = 10.0 
+
+                    forward_spaceship = new_orient @ np.array([0, 0, -1], dtype=np.float32)
+                    up_spaceship = new_orient @ np.array([0, 1, 0], dtype=np.float32)
+
+                    if inputs.get("SPACE"):
+                        transporter.properties["speed"] += 0.05
+                        if transporter.properties["speed"] > max_speed:
+                            transporter.properties["speed"] = max_speed
+
+                        transporter.properties["velocity"] = transporter.properties["speed"] * forward_spaceship
+                    else:
+                        transporter.properties["speed"] = 0.0
+                        transporter.properties["velocity"] = np.array([0, 0, 0], dtype=np.float32)
+
+                    transporter.properties["position"] += transporter.properties["velocity"] * delta
                 
-                current_orient = transporter.properties["orientation"]
+                    self.camera.lookAt = forward_spaceship
+                    self.camera.up = up_spaceship
+                    self.camera.position = copy.deepcopy(transporter.properties["position"]) - (5*forward_spaceship) + (up_spaceship)
 
-                rotation_speed = 0.5  # radians per second
-                dR = np.eye(3, dtype=np.float32)
-                if inputs.get("W"): dR = dR @ rotation_matrix(rotation_speed * delta, 0, 0)[:3, :3]  # pitch down
-                if inputs.get("S"): dR = dR @ rotation_matrix(-rotation_speed * delta, 0, 0)[:3, :3]  # pitch up
-                if inputs.get("A"): dR = dR @ rotation_matrix(0, rotation_speed * delta, 0)[:3, :3]  # yaw left
-                if inputs.get("D"): dR = dR @ rotation_matrix(0, -rotation_speed * delta, 0)[:3, :3]  # yaw right
-                if inputs.get("Q"): dR = dR @ rotation_matrix(0, 0, rotation_speed * delta)[:3, :3]  # roll left
-                if inputs.get("E"): dR = dR @ rotation_matrix(0, 0, -rotation_speed * delta)[:3, :3]  # roll right
+                    dest_pos = self.destination_planet.properties["position"]
+                    transport_pos = transporter.properties["position"]
+                    distance_to_destination = np.linalg.norm(dest_pos - transport_pos)
+                    if distance_to_destination < 5.0:
+                        print("Game Won! Distance:", distance_to_destination)
+                        self.screen = 2  # Switch to game-won screen
 
-                new_orient = current_orient @ dR
-                transporter.properties["orientation"] = new_orient
+            else: 
+                if self.objects.get("transporter") is not None:
+                    transporter = self.objects["transporter"]
+                    # Ensure that an orientation exists. It should have been set in 3rd person mode.
+                    if "orientation" not in transporter.properties:
+                        transporter.properties["orientation"] = rotation_matrix(*transporter.properties["rotation"])
+                    
+                    # Get the current (static) orientation.
+                    current_orient = transporter.properties["orientation"]
+                    forward_spaceship = current_orient @ np.array([0, 0, -1], dtype=np.float32)
+                    up_spaceship = current_orient @ np.array([0, 1, 0], dtype=np.float32)
 
-                max_speed = 10.0 
+                    max_speed = 10.0
+                    # Allow only space bar to accelerate the spaceship in the forward direction.
+                    if inputs.get("SPACE"):
+                        transporter.properties["speed"] += 0.05
+                        if transporter.properties["speed"] > max_speed:
+                            transporter.properties["speed"] = max_speed
 
-                forward_spaceship = new_orient @ np.array([0, 0, -1], dtype=np.float32)
-                up_spaceship = new_orient @ np.array([0, 1, 0], dtype=np.float32)
+                        transporter.properties["velocity"] = transporter.properties["speed"] * forward_spaceship
+                    else:
+                        transporter.properties["speed"] = 0.0
+                        transporter.properties["velocity"] = np.array([0, 0, 0], dtype=np.float32)
+                    
+                    transporter.properties["position"] += transporter.properties["velocity"] * delta
 
-                if inputs.get("SPACE"):
-                    transporter.properties["speed"] += 0.05
-                    if transporter.properties["speed"] > max_speed:
-                        transporter.properties["speed"] = max_speed
+                    # In 1st person view, the camera is attached directly to the transporter.
+                    camera_offset = (-5 * forward_spaceship) + (up_spaceship)
+                    self.camera.position = copy.deepcopy(transporter.properties["position"]) + camera_offset
 
-                    transporter.properties["velocity"] = transporter.properties["speed"] * forward_spaceship
-                else:
-                    transporter.properties["speed"] = 0.0
-                    transporter.properties["velocity"] = np.array([0, 0, 0], dtype=np.float32)
-
-                transporter.properties["position"] += transporter.properties["velocity"] * delta
-            
-                self.camera.lookAt = forward_spaceship
-                self.camera.up = up_spaceship
-                self.camera.position = copy.deepcopy(transporter.properties["position"]) - (5*forward_spaceship) + (up_spaceship)
-
-                dest_pos = self.destination_planet.properties["position"]
-                transport_pos = transporter.properties["position"]
-                distance_to_destination = np.linalg.norm(dest_pos - transport_pos)
-                if distance_to_destination < 5.0:
-                    print("Game Won! Distance:", distance_to_destination)
-                    self.screen = 2  # Switch to game-won screen
-            
+                    self.camera.lookAt = forward_spaceship
+                    self.camera.up = up_spaceship
+                    # self.camera.position = copy.deepcopy(transporter.properties["position"])
+           
             ############################################################################
             # Update Minimap Arrow: (Set direction based on transporter velocity direction and target direction)
             
@@ -354,6 +446,7 @@ class Game:
 
             # START ImGui rendering properly (BEFORE any ImGui drawing)
             imgui.new_frame()
+            self.DrawCrosshair()
 
             if (self.destination_planet is not None) and (self.objects.get("transporter") is not None):
                 # Get positions (world positions)

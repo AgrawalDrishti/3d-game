@@ -79,6 +79,7 @@ class Window:
             "L_SHIFT":False,
             "R_CLICK":False,
             "L_CLICK":False,
+            "V": False,  # Add the V key for view toggle
             "mouseDelta": [0.0,0.0] # Get mouse offset from center per frame
             }
         
@@ -104,6 +105,8 @@ class Window:
             inputs["R_CLICK"] = True
         if glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_LEFT) == glfw.PRESS:
             inputs["L_CLICK"] = True
+        if glfw.get_key(self.window, glfw.KEY_V) == glfw.PRESS:  # Check for V key press
+            inputs["V"] = True
 
         xpos, ypos = glfw.get_cursor_pos(self.window)
         inputs["mouseDelta"] = [xpos - self.windowWidth/2, ypos - self.windowHeight/2]
