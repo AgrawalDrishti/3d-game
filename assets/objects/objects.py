@@ -142,20 +142,31 @@ def get_planet(bottom_color , top_color):
     }
     return planet_properties
 
+
 def create_sphere(radius, segments):
     vertices = []
     indices = []
-
+    normals = []
     for y in range(segments + 1):
         for x in range(segments + 1):
             x_segment = x / segments
             y_segment = y / segments
+            
+            # Calculate position
             x_pos = radius * np.cos(x_segment * 2.0 * np.pi) * np.sin(y_segment * np.pi)
             y_pos = radius * np.cos(y_segment * np.pi)
             z_pos = radius * np.sin(x_segment * 2.0 * np.pi) * np.sin(y_segment * np.pi)
-
+            
+            # normal is simply the normalized position vector
+            norm_x = x_pos / radius
+            norm_y = y_pos / radius
+            norm_z = z_pos / radius
+            
+            # Add position (3 floats) and normal (3 floats)
             vertices.extend([x_pos, y_pos, z_pos])
+            normals.extend([norm_x, norm_y, norm_z])
 
+    # Generate indices
     for y in range(segments):
         for x in range(segments):
             i0 = y * (segments + 1) + x
@@ -166,7 +177,8 @@ def create_sphere(radius, segments):
             indices.extend([i0, i2, i1])
             indices.extend([i1, i2, i3])
 
-    return np.array(vertices, dtype=np.float32), np.array(indices, dtype=np.uint32)
+    return np.array(vertices, dtype=np.float32), np.array(normals, dtype=np.uint32)
+
 
 def get_space_station(is_destination_space_station=False):
     # Construct the path to your spacestation.obj file.
@@ -250,6 +262,33 @@ def get_transporter():
     }
     return transporter_properties
 
+
+def load_obj_file_no_normals(file_path, color=np.array([1, 1, 1]), rotation=np.array([0,0,0], dtype=np.float32)):
+    vertices = []
+    indices = []
+    R = rotation_matrix(*rotation)
+    
+    with open(file_path, 'r') as f:
+        for line in f:
+            if line.startswith('v '):
+                v = list(map(float, line.split()[1:4]))
+                rotated_v = R @ np.array(v)
+                vertices.extend(
+                    [*rotated_v,1,1,1, *color]
+                )
+
+    with open(file_path, 'r') as f:
+        for line in f:
+            if line.startswith('f '):
+                f = line.split()
+                for i in range(1, 4):
+                    indices.append(int(f[i].split('//')[0]) - 1)
+    
+    return {
+        'vertices': np.array(vertices, dtype=np.float32),
+        'indices': np.array(indices, dtype=np.uint32)
+    }
+
 def get_pirate():
     # Construct the path to your "pirate.obj" file
     file_path = os.path.join(os.path.dirname(__file__), "models", "pirate.obj")
@@ -261,7 +300,7 @@ def get_pirate():
     # We'll create a simple uniform color (e.g. grey) or random color, or you can do a gradient.
     num_vertices = len(positions) // 3
     # For demonstration, let's make it a uniform grey: (0.5,0.5,0.5,1)
-    colors = np.tile(np.array([1, 0.0 , 0.0, 1.0], dtype=np.float32), num_vertices)
+    colors = np.tile(np.array([0, 1.0 , 0.0, 1.0], dtype=np.float32), num_vertices)
     
     pirate_properties = {
         'positions': positions,
@@ -279,28 +318,30 @@ def get_pirate():
     return pirate_properties
 
 def get_laser():
-    # Construct the path to your laser.obj file.
     file_path = os.path.join(os.path.dirname(__file__), "models", "laser.obj")
     positions, normals = load_obj_with_normals(file_path)
-    num_vertices = len(positions) // 3
+    positions_reshaped = positions.reshape(-1, 3)
+    
+    min_y = np.min(positions_reshaped[:, 1])
+    max_y = np.max(positions_reshaped[:, 1])
 
-    # Assign a uniform color to the laser.
-    # You can choose any color; here, we use a bright yellow.
-    laser_color = np.array([1.0, 1.0, 0.0, 1.0], dtype=np.float32)
-    colors = np.tile(laser_color, num_vertices)
+    colors = []
+    for vertex in positions_reshaped:
+        y = vertex[1]
+        t = (y - min_y) / (max_y - min_y) if max_y != min_y else 0.0
+        color = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+        colors.extend(list(color) + [1.0])
+    colors = np.array(colors, dtype=np.float32)
 
-    laser_properties = {
-        'positions': positions,
-        'normals': normals,
+    planet_properties = {
+        'positions': positions,  
+        'normals': normals, 
         'colors': colors,
-        # Initial position can be set dynamically when the laser is fired.
-        'position': np.array([0, 0, 0], dtype=np.float32),
-        # Lasers will have velocity when fired.
+        'position': np.array([0, 0, -10], dtype=np.float32), 
         'velocity': np.array([0, 0, 0], dtype=np.float32),
         'rotation': np.array([0, 0, 0], dtype=np.float32),
-        # Scale might be adjusted based on your desired laser size.
         'scale': np.array([1, 1, 1], dtype=np.float32),
-        'color': laser_color,
+        'color': np.array([0.2, 0.6, 1.0, 1.0], dtype=np.float32),
         'sens': 250,
     }
-    return laser_properties
+    return planet_properties

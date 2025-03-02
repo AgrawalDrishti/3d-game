@@ -110,7 +110,8 @@ class Window:
 
         xpos, ypos = glfw.get_cursor_pos(self.window)
         inputs["mouseDelta"] = [xpos - self.windowWidth/2, ypos - self.windowHeight/2]
-
+        # Store absolute cursor position.
+        inputs["cursor_pos"] = (xpos, ypos)
         self.impl.process_inputs()
 
         glClearColor(c0, c1, c2, c3)

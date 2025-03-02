@@ -18,6 +18,7 @@ class Game:
         self.objects = {}
         self.view_mode = "3rd"
         self.prev_right_click = False
+        self.objects["lasers"] = []
 
     def DrawCrosshair(self):
         # Only draw the crosshair in 1st person view
@@ -44,30 +45,12 @@ class Game:
                             color, thickness)
 
     def spawn_laser(self):
-        # Ensure there's a list to store active lasers.
-        if "lasers" not in self.objects:
-            self.objects["lasers"] = []
-            
-        # Create a new laser using your get_laser() function.
         laser = get_laser()
-        
-        # Use the transporter's current position and orientation.
-        transporter = self.objects["transporter"]
-        # Ensure an orientation exists.
-        if "orientation" not in transporter.properties:
-            transporter.properties["orientation"] = rotation_matrix(*transporter.properties["rotation"])
-        current_orient = transporter.properties["orientation"]
-        forward = current_orient @ np.array([0, 0, -1], dtype=np.float32)
-        
-        # Set the laser's starting position at the transporter's position.
-        laser["position"] = copy.deepcopy(transporter.properties["position"])
-        # Define a speed for the laser blast.
-        laser_speed = 20.0  # Adjust as needed.
-        laser["velocity"] = forward * laser_speed
-        # Optionally, adjust the scale for visual clarity.
+        laser["position"] = copy.deepcopy(self.camera.position)
+        laser_speed = 20.0  
+        laser["velocity"] = self.camera.lookAt * laser_speed
         laser["scale"] = np.array([0.1, 0.1, 0.1], dtype=np.float32)
         
-        # Create an Object instance for the laser and add it to your objects list.
         self.objects["lasers"].append(Object(None, self.shaders[0], laser))
 
     def InitScene(self):
@@ -171,7 +154,7 @@ class Game:
             transporter["scale"] = np.array([0.2, 0.2, 0.2], dtype=np.float32)
             self.objects["transporter"] = Object(None, self.shaders[0], transporter)
             
-            self.n_pirates = 20 
+            self.n_pirates = 0 
             self.objects["pirates"] = []
             for i in range(self.n_pirates):
                 pirate = get_pirate()
@@ -356,6 +339,17 @@ class Game:
                         self.screen = 2  # Switch to game-won screen
 
             else: 
+                # if not hasattr(self, "prev_left_click"):
+                #     self.prev_left_click = False
+
+                # current_left_click = inputs.get("L_CLICK", False)
+
+                 # Edge detection: only spawn a laser when the button transitions from not pressed to pressed.
+                if inputs.get("L_CLICK"):
+                    self.spawn_laser()
+                    print("Laser fired!")
+                # self.prev_left_click = current_left_click
+
                 if self.objects.get("transporter") is not None:
                     transporter = self.objects["transporter"]
                     # Ensure that an orientation exists. It should have been set in 3rd person mode.
@@ -382,13 +376,23 @@ class Game:
                     transporter.properties["position"] += transporter.properties["velocity"] * delta
 
                     # In 1st person view, the camera is attached directly to the transporter.
-                    camera_offset = (-5 * forward_spaceship) + (up_spaceship)
+                    camera_offset = (-1.0* forward_spaceship) + (0.5 * up_spaceship)
                     self.camera.position = copy.deepcopy(transporter.properties["position"]) + camera_offset
 
                     self.camera.lookAt = forward_spaceship
-                    self.camera.up = up_spaceship
-                    # self.camera.position = copy.deepcopy(transporter.properties["position"])
-           
+                    self.camera.up = up_spaceship 
+
+                # --- Update lasers ---
+                if "lasers" in self.objects:
+                    # Use a copy of the list to allow removal of lasers safely.
+                    for laser_obj in self.objects["lasers"][:]:
+                        # Update laser position.
+                        laser_obj.properties["position"] += laser_obj.properties["velocity"] * delta
+                        
+                        # Optionally: Remove laser if it travels too far.
+                        # For example, if the laser is more than 1000 units away from origin:
+                        if np.linalg.norm(laser_obj.properties["position"]) > 1000:
+                            self.objects["lasers"].remove(laser_obj)       
             ############################################################################
             # Update Minimap Arrow: (Set direction based on transporter velocity direction and target direction)
             
@@ -442,7 +446,9 @@ class Game:
             
             for pirate_obj in self.objects.get("pirates", []):
                 pirate_obj.Draw()
-
+            
+            for laser_obj in self.objects.get("lasers", []):
+                laser_obj.Draw()
 
             # START ImGui rendering properly (BEFORE any ImGui drawing)
             imgui.new_frame()
