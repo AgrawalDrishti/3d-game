@@ -62,14 +62,21 @@ class Game:
                 planet["scale"] = np.array([scale_val, scale_val, scale_val], dtype=np.float32)
                 self.objects["planets"].append(Object(None, self.shaders[0], planet))
             
-            # Select a destination planet (randomly for now)
-            if len(self.objects["planets"]) > 0:
-                self.destination_planet = random.choice(self.objects["planets"])
-                print("Destination planet position:", self.destination_planet.properties["position"])
-
             self.objects["stations"] = []
-            for planet_obj in self.objects.get("planets", []):
-                station = get_space_station()
+            num_stations = len(self.objects.get("planets", []))
+
+            if num_stations >= 2:
+                indices = list(range(num_stations))
+                source_index = random.choice(indices)
+                indices.remove(source_index)
+                destination_index = random.choice(indices)
+            else:
+                source_index = 0
+                destination_index = 0
+
+            for i, planet_obj in enumerate(self.objects.get("planets", [])):
+                is_destination = (i == destination_index)
+                station = get_space_station(is_destination_space_station=is_destination)
 
                 if "normals" not in station:
                     n_vertices = len(station["vertices"]) // 3
@@ -95,23 +102,15 @@ class Game:
                 station["scale"] = np.array([0.7, 0.7, 0.7], dtype=np.float32)
                 self.objects["stations"].append(Object(None, self.shaders[0], station))
 
-            # Initialize transporter and set its starting position on a randomly chosen source station.
-            if len(self.objects["stations"]) >= 2:
-                indices = list(range(len(self.objects["stations"])))
-                source_index = random.choice(indices)
-                indices.remove(source_index)
-                destination_index = random.choice(indices)
-            else:
-                source_index = 0
-                destination_index = 0
-
             print(f"Source index: {source_index}, Destination index: {destination_index}")
 
             source_station = self.objects["stations"][source_index]
             destination_station = self.objects["stations"][destination_index]
-
-            # Store the destination for later use
             self.destination_station = destination_station
+
+            self.destination_planet = self.objects["planets"][destination_index]
+            print("Destination planet position:", self.destination_planet.properties["position"])
+
 
             # self.objects["transporter"] = None
             transporter = get_transporter()
@@ -154,13 +153,12 @@ class Game:
         self.DrawScene()
 
     def DrawText(self):
-        if self.screen == 0: # Example start screen
-            window_w, window_h = 400, 200  # Set the window size
+        if self.screen == 0: 
+            window_w, window_h = 400, 200  
             x_pos = (self.width - window_w) / 2
             y_pos = (self.height - window_h) / 2
 
             imgui.new_frame()
-            # Centered window
             imgui.set_next_window_position(x_pos, y_pos)
             imgui.set_next_window_size(window_w, window_h)
             imgui.begin("Main Menu", False, imgui.WINDOW_NO_MOVE | imgui.WINDOW_NO_COLLAPSE | imgui.WINDOW_NO_RESIZE)
@@ -169,10 +167,9 @@ class Game:
                 self.screen = 1
                 self.InitScene()
             if imgui.button("Exit" , 395 , 80):
-                exit(0)  # Alternatively, use sys.exit(0) if you import sys
+                exit(0) 
 
             imgui.end()
-
             imgui.render()
             self.gui.render(imgui.get_draw_data())
 
@@ -186,11 +183,9 @@ class Game:
             imgui.set_next_window_size(window_w, window_h)
             imgui.begin("Game Won", False, imgui.WINDOW_NO_MOVE | imgui.WINDOW_NO_COLLAPSE | imgui.WINDOW_NO_RESIZE)
             
-            # Center the "GAME WON" text horizontally.
             imgui.set_cursor_pos_x((window_w - imgui.calc_text_size("GAME WON")[0]) / 2)
             imgui.text("GAME WON")
             
-            # Add a "Back to Menu" button.
             if imgui.button("Back to Menu", 395, 80):
                 self.screen = 0   # Go back to the start menu screen
             
@@ -439,12 +434,6 @@ class Game:
 
             # for laser in self.gameState["lasers"]:
             #     laser.Draw()
-            # for planet in self.gameState["planets"]:
-            #     planet.Draw()
-            # for spaceStation in self.gameState["spaceStations"]:
-            #     spaceStation.Draw()
-            # for pirate in self.gameState["pirates"]:
-            #     pirate.Draw()
             ######################################################
             pass
 

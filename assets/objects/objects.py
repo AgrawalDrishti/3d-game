@@ -169,18 +169,17 @@ def create_sphere(radius, segments):
 
     return np.array(vertices, dtype=np.float32), np.array(indices, dtype=np.uint32)
 
-def get_space_station():
+def get_space_station(is_destination_space_station=False):
     # Construct the path to your spacestation.obj file.
     file_path = os.path.join(os.path.dirname(__file__), "models", "spacestation.obj")
     positions, normals = load_obj_with_normals(file_path)
     num_vertices = len(positions) // 3
+
+    # Define the default color (purple) and create the colors array.
+    default_color = np.array([0.812, 0.0, 1.0, 1.0], dtype=np.float32)
+    colors = np.tile(default_color, num_vertices)
     
-    # For simplicity, we'll assign a uniform color to all vertices (e.g. light gray).
-    # vertices_reshaped = vertices.reshape(-1, 3)
-    # num_vertices = vertices_reshaped.shape[0]
-    # Create a colors array: for each vertex, assign a RGBA value.
-    colors = np.tile(np.array([0.812, 0.0, 1.0, 1.0], dtype=np.float32), num_vertices)
-    
+    # Create the space station properties dictionary.
     station_properties = {
         'positions': positions,
         'normals': normals,
@@ -189,12 +188,21 @@ def get_space_station():
         'velocity': np.array([0, 0, 0], dtype=np.float32),
         'rotation': np.array([0, 0, 0], dtype=np.float32),
         'scale': np.array([0.5, 0.5, 0.5], dtype=np.float32),
-        'color': np.array([0.812, 0.0, 1.0, 1.0], dtype=np.float32),
+        'color': default_color,
         'sens': 250,
         'rotation_radius': 1.5,
         'init_position': np.array([0, 0, 0], dtype=np.float32),
+        'is_destination_space_station': is_destination_space_station
     }
+
+    # If this space station is marked as the destination, update its color to green.
+    if is_destination_space_station:
+        green_color = np.array([0.0, 1.0, 0.0, 1.0], dtype=np.float32)
+        station_properties['color'] = green_color
+        station_properties['colors'] = np.tile(green_color, num_vertices)
+
     return station_properties
+
 
 def get_transporter():
     # Construct the path to your transporter.obj file.
