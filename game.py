@@ -111,8 +111,6 @@ class Game:
             self.destination_planet = self.objects["planets"][destination_index]
             print("Destination planet position:", self.destination_planet.properties["position"])
 
-
-            # self.objects["transporter"] = None
             transporter = get_transporter()
             transporter["position"] = copy.deepcopy(source_station.properties["position"])+ np.array([0, -1.0, 0], dtype=np.float32)
             print("Source station position: ", source_station.properties["position"])
@@ -121,9 +119,7 @@ class Game:
             transporter["scale"] = np.array([0.2, 0.2, 0.2], dtype=np.float32)
             self.objects["transporter"] = Object(None, self.shaders[0], transporter)
             
-            self.n_pirates = 20 # for example
-
-            # After you've created stations and the transporter, create a pirate list.
+            self.n_pirates = 20 
             self.objects["pirates"] = []
             for i in range(self.n_pirates):
                 pirate = get_pirate()
@@ -135,14 +131,13 @@ class Game:
                 ], dtype=np.float32)
 
                 pirate["position"] = pos
-                # Optionally scale the pirate smaller or bigger
                 pirate["scale"] = np.array([1, 1, 1], dtype=np.float32)
 
                 speed = 15
                 direction = np.random.uniform(-1, 1, size=3)
                 direction_norm = np.linalg.norm(direction)
                 if direction_norm > 0:
-                    direction = direction / direction_norm  # normalize
+                    direction = direction / direction_norm  
                 pirate["velocity"] = direction * speed
                 pirate_obj = Object(None, self.shaders[0], pirate)
                 self.objects["pirates"].append(pirate_obj)
@@ -173,8 +168,8 @@ class Game:
             imgui.render()
             self.gui.render(imgui.get_draw_data())
 
-        if self.screen == 2:  # YOU WON Screen
-            window_w, window_h = 400, 200  # Set the window size for the Game Won screen
+        if self.screen == 2: 
+            window_w, window_h = 400, 200  
             x_pos = (self.width - window_w) / 2
             y_pos = (self.height - window_h) / 2
 
@@ -187,15 +182,15 @@ class Game:
             imgui.text("GAME WON")
             
             if imgui.button("Back to Menu", 395, 80):
-                self.screen = 0   # Go back to the start menu screen
+                self.screen = 0  
             
             imgui.end()
             imgui.render()
             self.gui.render(imgui.get_draw_data())
 
 
-        if self.screen == 3:  # GAME OVER Screen
-            window_w, window_h = 400, 200  # Set the window size for the Game Over screen
+        if self.screen == 3: 
+            window_w, window_h = 400, 200 
             x_pos = (self.width - window_w) / 2
             y_pos = (self.height - window_h) / 2
 
@@ -204,13 +199,11 @@ class Game:
             imgui.set_next_window_size(window_w, window_h)
             imgui.begin("Game Over", False, imgui.WINDOW_NO_MOVE | imgui.WINDOW_NO_COLLAPSE | imgui.WINDOW_NO_RESIZE)
             
-            # Center the "GAME OVER" text horizontally.
             imgui.set_cursor_pos_x((window_w - imgui.calc_text_size("GAME OVER")[0]) / 2)
             imgui.text("GAME OVER")
             
-            # Add a "Back to Menu" button.
             if imgui.button("Back to Menu", 395, 80):
-                self.screen = 0   # Go back to the start menu screen
+                self.screen = 0   
             
             imgui.end()
             imgui.render()
@@ -220,8 +213,6 @@ class Game:
         
     def UpdateScene(self, inputs, time):
         if self.screen == 1: 
-            # angular_speed = 0.5  # radians per second (adjust as needed)
-            # delta = time["deltaTime"]
             delta = time["deltaTime"]
             theta = 0.4 * delta  # Increment per frame.
 
@@ -236,29 +227,26 @@ class Game:
             # Update pirates so that they chase the transporter
             if self.objects.get("pirates") is not None and self.objects.get("transporter") is not None:
                 transporter_pos = self.objects["transporter"].properties["position"]
-                chase_speed = 7.0  # Set a constant speed for chasing; adjust as needed.
+                chase_speed = 7.0  
                 for pirate_obj in self.objects.get("pirates", []):
                     pirate_pos = pirate_obj.properties["position"]
-                    # Compute direction from pirate to transporter
                     direction = transporter_pos - pirate_pos
                     norm = np.linalg.norm(direction)
                     if norm > 0:
                         direction = direction / norm  # Normalize
                     else:
                         direction = np.array([0, 0, 0], dtype=np.float32)
-                    # Set the pirate's velocity towards the transporter
                     pirate_obj.properties["velocity"] = direction * chase_speed
-                    # Update the pirate's position based on the new velocity
                     pirate_obj.properties["position"] += pirate_obj.properties["velocity"] * delta
 
             if self.objects.get("transporter") is not None and self.objects.get("pirates") is not None:
                 transporter_pos = self.objects["transporter"].properties["position"]
-                collision_threshold = 2.0  # Adjust threshold as needed for your models
+                collision_threshold = 3.0  
                 for pirate_obj in self.objects["pirates"]:
                     pirate_pos = pirate_obj.properties["position"]
                     if np.linalg.norm(transporter_pos - pirate_pos) < collision_threshold:
                         print("Collision detected! Game Over.")
-                        self.screen = 3  # Set game over state
+                        self.screen = 3 
                         break
 
             if self.objects.get("transporter") is not None:
